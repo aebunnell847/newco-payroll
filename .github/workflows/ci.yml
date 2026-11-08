@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Unit + real-chain integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: newco-payroll
+
+      # The integration suite needs a real local chain, which comes from
+      # the sibling newco-contracts repo (public), at its latest master.
+      - uses: actions/checkout@v4
+        with:
+          repository: aebunnell847/newco-contracts
+          path: newco-contracts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            newco-payroll/package-lock.json
+            newco-contracts/package-lock.json
+
+      - name: Install newco-contracts and compile
+        working-directory: newco-contracts
+        run: |
+          npm ci
+          npm run compile
+
+      # src/chain/abi/*.json is a hand-maintained copy of newco-contracts'
+      # compiled output. Fail if the contracts changed and the copy didn't.
+      - name: Vendored ABIs match newco-contracts
+        run: |
+          for c in ConsentRegistry ReconciliationLedger; do
+            diff -q newco-contracts/artifacts-custom/$c.json newco-payroll/src/chain/abi/$c.json \
+              || { echo "::error::src/chain/abi/$c.json is out of sync with newco-contracts"; exit 1; }
+          done
+
+      - name: Start local Hardhat node
+        working-directory: newco-contracts
+        run: |
+          npx hardhat node > hardhat-node.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf -X POST -H 'Content-Type: application/json' \
+                 --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+                 http://127.0.0.1:8545 > /dev/null; then
+              echo "node is up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "Hardhat node did not start"; cat hardhat-node.log; exit 1
+
+      - name: Install and test newco-payroll
+        working-directory: newco-payroll
+        run: |
+          npm ci
+          # --forbid-pending: the integration suite skips itself when no
+          # chain is reachable; in CI a skip must fail, not pass silently.
+          npm test -- --forbid-pending
