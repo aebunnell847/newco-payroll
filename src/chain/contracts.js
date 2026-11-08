@@ -128,9 +128,11 @@ function createChainClient(config) {
 /**
  * toBytes32Id
  * -------------
- * Helper to turn a stable string identifier (like "emp-001" or
- * "2026-P01") into the bytes32 the contracts expect, the same way the
- * existing contract test suites do it.
+ * Helper to turn a stable, NON-personal string identifier (like a pay
+ * period "2026-P01") into the bytes32 the contracts expect. Do not use
+ * it for employee IDs: a plain hash of a guessable ID is reversible by
+ * anyone reading the public ledger. Use toLedgerEmployeeId in
+ * chain/ledgerIds.js instead.
  */
 function toBytes32Id(stableString) {
   return ethers.keccak256(ethers.toUtf8Bytes(stableString));

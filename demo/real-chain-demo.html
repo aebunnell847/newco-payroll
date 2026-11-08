@@ -156,6 +156,24 @@ const KEYS = {
   custodian:"0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
 };
 
+// Demo-only employee-ID key: public, for a disposable local chain only.
+// Mirrors src/chain/ledgerIds.js - the on-chain employeeId is
+// HMAC-SHA256(key, "newco:ledger-employee-id:v1:" + employeeId), never a
+// plain hash, so nobody reading the public ledger can recompute it from a
+// guessed employee number. A real deployment reads NEWCO_EMPLOYEE_ID_KEY.
+const DEMO_EMPLOYEE_ID_KEY = "11".repeat(32);
+
+async function toLedgerEmployeeId(employeeId) {
+  const key = await crypto.subtle.importKey(
+    "raw", ethers.getBytes("0x" + DEMO_EMPLOYEE_ID_KEY),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+  );
+  const mac = await crypto.subtle.sign(
+    "HMAC", key, new TextEncoder().encode("newco:ledger-employee-id:v1:" + employeeId)
+  );
+  return ethers.hexlify(new Uint8Array(mac));
+}
+
 const RPC_URL = "http://127.0.0.1:8545";
 const STATUS_NAMES = ["NoRecord", "ContributionOnly", "RemittanceOnly", "Matched", "AmountMismatch", "LateDeposit"];
 const STATUS_PILL = ["warn", "warn", "warn", "good", "bad", "bad"];
@@ -299,7 +317,7 @@ document.getElementById("runPayrollBtn").addEventListener("click", async () => {
     document.getElementById("rNet").textContent = fmtMoney(netPayCents);
     document.getElementById("payrollResult").style.display = "grid";
 
-    const employeeIdBytes32 = ethers.id(employeeId);
+    const employeeIdBytes32 = await toLedgerEmployeeId(employeeId);
     const payPeriodBytes32 = ethers.id(payPeriod);
     const withheldAt = Math.floor(Date.now() / 1000);
 

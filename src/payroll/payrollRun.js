@@ -8,6 +8,7 @@
 
 const { runPayrollForEmployee } = require("./payrollEngine");
 const { toBytes32Id } = require("../chain/contracts");
+const { toLedgerEmployeeId, parseEmployeeIdKey } = require("../chain/ledgerIds");
 
 /**
  * runPayrollBatch
@@ -23,6 +24,10 @@ const { toBytes32Id } = require("../chain/contracts");
  *                             entirely rather than defaulting to "proceed
  *                             anyway" - consent must be explicit.
  *   yearToDateDeferralFor  - (employee) => cents already deferred this year
+ *   employeeIdKey          - hex secret (NEWCO_EMPLOYEE_ID_KEY) used to
+ *                             derive each employee's on-chain ID; see
+ *                             chain/ledgerIds.js. Required whenever
+ *                             chainClient is set.
  *
  * Returns an array of { employee, result, skipped?, skipReason?, error? }
  * so the caller can see exactly what happened for every employee, not
@@ -33,7 +38,13 @@ async function runPayrollBatch(employees, payPeriod, options = {}) {
     chainClient = null,
     consentAttestationFor = () => null,
     yearToDateDeferralFor = () => 0,
+    employeeIdKey = null,
   } = options;
+
+  // Validate the key once, before touching anyone: a missing or weak key
+  // is a configuration error for the whole run, not a per-employee one,
+  // and must never fall back to a guessable plain hash.
+  if (chainClient) parseEmployeeIdKey(employeeIdKey);
 
   const outcomes = [];
 
@@ -62,7 +73,7 @@ async function runPayrollBatch(employees, payPeriod, options = {}) {
       const result = runPayrollForEmployee(employee, payPeriod, yearToDateDeferralCents);
 
       if (chainClient) {
-        const employeeIdBytes32 = toBytes32Id(employee.id);
+        const employeeIdBytes32 = toLedgerEmployeeId(employee.id, employeeIdKey);
         const payPeriodBytes32 = toBytes32Id(payPeriod.id);
         const withheldAt = Math.floor(Date.now() / 1000);
 

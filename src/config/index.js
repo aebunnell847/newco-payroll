@@ -9,6 +9,9 @@ function loadConfig(env = process.env) {
     payrollSignerPrivateKey: env.NEWCO_PAYROLL_SIGNER_KEY || null,
     consentRegistryAddress: env.NEWCO_CONSENT_REGISTRY_ADDRESS || null,
     reconciliationLedgerAddress: env.NEWCO_RECONCILIATION_LEDGER_ADDRESS || null,
+    // Secret for deriving on-chain employee IDs (src/chain/ledgerIds.js).
+    // No fallback on purpose: chain writes refuse to run without it.
+    employeeIdKey: env.NEWCO_EMPLOYEE_ID_KEY || null,
   };
 }
 

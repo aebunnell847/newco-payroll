@@ -33,11 +33,18 @@ component implements).
    or a hardcoded guess quietly stand in for a real regulatory figure.
 3. Keep the layers separated: `payrollEngine.js` (pure math, no I/O),
    `chain/contracts.js` (the only file touching the blockchain),
-   `payrollRun.js` (orchestration). This is what makes 16/16 tests
+   `payrollRun.js` (orchestration). This is what makes every unit test
    possible without a running blockchain node.
 4. One employee's failure (bad data, revoked consent, a failed chain
    call) must never abort the rest of a payroll batch - see the
-   try/catch-per-employee pattern in `runPayrollBatch`.
+   try/catch-per-employee pattern in `runPayrollBatch`. The one
+   exception is a missing or invalid `NEWCO_EMPLOYEE_ID_KEY`: that is a
+   configuration error for the whole run, so it stops the batch before
+   anyone is processed.
+5. Employee IDs reach the chain only through `toLedgerEmployeeId` in
+   `chain/ledgerIds.js` (a keyed HMAC). Never write `toBytes32Id`, or
+   any other unkeyed hash, of an employee identifier to the ledger:
+   it is public and a plain hash of a guessable ID is reversible.
 
 ## Natural next steps
 

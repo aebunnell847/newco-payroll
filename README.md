@@ -27,7 +27,10 @@ src/
                             math -> record to the ledger
   chain/contracts.js       - the only file that talks to the blockchain
                             (ConsentRegistry + ReconciliationLedger)
-  config/index.js          - reads RPC URL / addresses / signer key from env
+  chain/ledgerIds.js       - derives each employee's on-chain ID with a keyed
+                            hash (see "Employee IDs on the public ledger")
+  config/index.js          - reads RPC URL / addresses / signer key /
+                            employee-ID key from env
   chain/abi/*.json         - vendored copy of newco-contracts' compiled
                             ABI/bytecode (keep in sync manually for now)
 test/
@@ -102,6 +105,35 @@ automatically block or "correct" a remittance based on a reconciliation
 mismatch - mismatches only ever get flagged (in `ReconciliationLedger.sol`)
 for a human/ministerial process to resolve. Consent is the one place a
 hard stop is correct; reconciliation is not.
+
+## Employee IDs on the public ledger
+
+`ReconciliationLedger` stores each employee's contribution amount next
+to an `employeeId`, and everything on a public chain is readable by
+anyone, forever. A plain hash of a guessable identifier (a sequential
+employee number, an email) can be reversed by hashing every candidate,
+which would expose individual 401(k) deferrals.
+
+So the on-chain ID is `HMAC-SHA256(NEWCO_EMPLOYEE_ID_KEY,
+"newco:ledger-employee-id:v1:" + employee.id)` (`src/chain/ledgerIds.js`).
+Without the key, a guessed ID tells you nothing.
+
+- **Set the key** to 32+ random bytes, hex-encoded:
+  `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+  Any run that writes to the chain refuses to start without a valid
+  key; there is deliberately no fallback to a plain hash.
+- **The custodian needs the same ledger IDs** to record remittances.
+  Either share the key with it under the same controls as the signer
+  key, or send it the ledger ID alongside each remittance line.
+- **Don't rotate the key casually:** a new key gives every employee a
+  new ledger ID, so records before and after can't be joined without
+  the old key.
+- **What this doesn't hide:** an employee's ledger ID is the same every
+  pay period, so an observer can still follow one pseudonym's
+  contribution amounts over time, just not attach a name. Hiding the
+  amounts is an on-chain design question for `newco-contracts`.
+
+The browser demo uses the same scheme with a public, demo-only key.
 
 ## What's not here yet
 

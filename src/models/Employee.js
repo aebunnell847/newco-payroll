@@ -9,8 +9,9 @@
 //
 // Fields:
 //   id                  - an opaque identifier (should correspond to the
-//                          on-chain employeeId used in ReconciliationLedger,
-//                          itself ideally a hash/pseudonym rather than a
+//                          on-chain employeeId used in ReconciliationLedger
+//                          via the keyed hash in chain/ledgerIds.js, never
+//                          a plain hash; and never a
 //                          real name or SSN)
 //   payType             - "salary" | "hourly"
 //   annualSalaryCents   - required if payType === "salary"

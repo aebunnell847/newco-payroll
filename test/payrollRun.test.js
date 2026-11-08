@@ -8,6 +8,8 @@
 
 const { expect } = require("chai");
 const { runPayrollBatch } = require("../src/payroll/payrollRun");
+// Test-only key (32 bytes). Never a real deployment value.
+const TEST_EMPLOYEE_ID_KEY = "11".repeat(32);
 
 function makeFakeChainClient({ consentActiveByAttestation = {} } = {}) {
   const recordedContributions = [];
@@ -58,6 +60,7 @@ describe("runPayrollBatch (with a chain client)", () => {
 
     const outcomes = await runPayrollBatch(employees, payPeriod, {
       chainClient,
+      employeeIdKey: TEST_EMPLOYEE_ID_KEY,
       consentAttestationFor: () => null,
     });
 
@@ -73,6 +76,7 @@ describe("runPayrollBatch (with a chain client)", () => {
 
     const outcomes = await runPayrollBatch(employees, payPeriod, {
       chainClient,
+      employeeIdKey: TEST_EMPLOYEE_ID_KEY,
       consentAttestationFor: () => "attn-1",
     });
 
@@ -87,6 +91,7 @@ describe("runPayrollBatch (with a chain client)", () => {
 
     const outcomes = await runPayrollBatch(employees, payPeriod, {
       chainClient,
+      employeeIdKey: TEST_EMPLOYEE_ID_KEY,
       consentAttestationFor: () => "attn-1",
     });
 
@@ -106,11 +111,68 @@ describe("runPayrollBatch (with a chain client)", () => {
 
     const outcomes = await runPayrollBatch(employees, payPeriod, {
       chainClient,
+      employeeIdKey: TEST_EMPLOYEE_ID_KEY,
       consentAttestationFor: (employee) => (employee.id === "emp-broken" ? "attn-broken" : "attn-ok"),
     });
 
     expect(outcomes[0].error).to.match(/consent not active/);
     expect(outcomes[1].result).to.exist;
     expect(chainClient.recordedContributions).to.have.length(1);
+  });
+});
+
+describe("runPayrollBatch (on-chain employee IDs)", () => {
+  const { ethers } = require("ethers");
+  const { toLedgerEmployeeId } = require("../src/chain/ledgerIds");
+
+  it("records the keyed ledger ID, never a plain hash of the employee ID", async () => {
+    const chainClient = makeFakeChainClient({ consentActiveByAttestation: { "attn-1": true } });
+
+    await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01" }, {
+      chainClient,
+      employeeIdKey: TEST_EMPLOYEE_ID_KEY,
+      consentAttestationFor: () => "attn-1",
+    });
+
+    const recorded = chainClient.recordedContributions[0].employeeIdBytes32;
+    expect(recorded).to.equal(toLedgerEmployeeId("emp-001", TEST_EMPLOYEE_ID_KEY));
+    expect(recorded).to.not.equal(ethers.keccak256(ethers.toUtf8Bytes("emp-001")));
+  });
+
+  it("refuses the whole batch up front when a chain client is set but the key is missing", async () => {
+    const chainClient = makeFakeChainClient({ consentActiveByAttestation: { "attn-1": true } });
+    let error;
+    try {
+      await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01" }, {
+        chainClient,
+        consentAttestationFor: () => "attn-1",
+      });
+    } catch (err) {
+      error = err;
+    }
+    expect(error).to.exist;
+    expect(error.message).to.match(/NEWCO_EMPLOYEE_ID_KEY/);
+    expect(chainClient.recordedContributions).to.have.length(0);
+  });
+
+  it("refuses a key that is too short rather than writing weak IDs", async () => {
+    const chainClient = makeFakeChainClient({ consentActiveByAttestation: { "attn-1": true } });
+    let error;
+    try {
+      await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01" }, {
+        chainClient,
+        employeeIdKey: "ab".repeat(16),
+        consentAttestationFor: () => "attn-1",
+      });
+    } catch (err) {
+      error = err;
+    }
+    expect(error && error.message).to.match(/at least 32 bytes/);
+    expect(chainClient.recordedContributions).to.have.length(0);
+  });
+
+  it("does not need a key for a dry run with no chain client", async () => {
+    const outcomes = await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01" }, {});
+    expect(outcomes[0].result).to.exist;
   });
 });
