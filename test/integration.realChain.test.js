@@ -28,11 +28,21 @@ const PAYROLL_SIGNER_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae
 const CUSTODIAN_KEY = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"; // account #1
 const EMPLOYEE_WALLET_KEY = "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a"; // account #2
 
+// A plain JSON-RPC probe with a hard timeout, deliberately NOT an ethers
+// JsonRpcProvider: with no node running, a provider retries network
+// detection every second forever, which kept the mocha process alive
+// after the suite had already skipped - `npm test` hung instead of
+// exiting. fetch + AbortSignal leaves nothing running behind it.
 async function isNodeReachable() {
   try {
-    const provider = new ethers.JsonRpcProvider(RPC_URL, undefined, { cacheTimeout: -1 });
-    await provider.getBlockNumber();
-    return true;
+    const res = await fetch(RPC_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", method: "eth_chainId", params: [], id: 1 }),
+      signal: AbortSignal.timeout(2000),
+    });
+    const body = await res.json();
+    return typeof body.result === "string";
   } catch (err) {
     return false;
   }
