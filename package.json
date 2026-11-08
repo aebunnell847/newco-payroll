@@ -1,0 +1,22 @@
+{
+  "name": "newco-payroll",
+  "version": "0.1.0",
+  "description": "NewCo payroll/HRIS application layer - payroll calculation engine plus the orchestration that gates on wallet-granted consent (ConsentRegistry) and records results to the reconciliation ledger (ReconciliationLedger).",
+  "main": "src/payroll/payrollRun.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "mocha test/*.test.js --timeout 20000"
+  },
+  "keywords": ["payroll", "401k", "hris", "blockchain"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ethers": "^6.13.0"
+  },
+  "devDependencies": {
+    "chai": "^4.4.1",
+    "mocha": "^10.4.0"
+  }
+}
