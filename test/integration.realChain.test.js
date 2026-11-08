@@ -15,6 +15,10 @@ const { expect } = require("chai");
 const { ethers } = require("ethers");
 const { createChainClient, toBytes32Id, CONSENT_REGISTRY_ABI, RECONCILIATION_LEDGER_ABI } = require("../src/chain/contracts");
 const { runPayrollBatch } = require("../src/payroll/payrollRun");
+const { toLedgerEmployeeId } = require("../src/chain/ledgerIds");
+
+// Test-only employee-ID key (32 bytes). Never a real deployment value.
+const TEST_EMPLOYEE_ID_KEY = "11".repeat(32);
 
 const consentArtifact = require("../src/chain/abi/ConsentRegistry.json");
 const ledgerArtifact = require("../src/chain/abi/ReconciliationLedger.json");
@@ -124,6 +128,7 @@ describe("integration: real deployed contracts on a local chain", function () {
 
     const outcomes = await runPayrollBatch([employee], payPeriod, {
       chainClient,
+      employeeIdKey: TEST_EMPLOYEE_ID_KEY,
       consentAttestationFor: () => attestationId,
       yearToDateDeferralFor: () => 0,
     });
@@ -135,10 +140,16 @@ describe("integration: real deployed contracts on a local chain", function () {
 
     // Read the result back from the REAL ReconciliationLedger, not from
     // anything cached in memory - this is the actual proof the write landed.
-    const employeeIdBytes32 = toBytes32Id(employee.id);
+    const employeeIdBytes32 = toLedgerEmployeeId(employee.id, TEST_EMPLOYEE_ID_KEY);
     const payPeriodBytes32 = toBytes32Id(payPeriod.id);
     const status = await chainClient.getReconciliationStatus(employeeIdBytes32, payPeriodBytes32);
     expect(status).to.equal(1n); // ContributionOnly - no remittance recorded yet, which is correct
+
+    // Someone reading the public ledger who guesses the employee ID and
+    // hashes it the old way finds nothing: the record is only reachable
+    // with the employer's key.
+    const guessedPlainId = toBytes32Id(employee.id);
+    expect(await chainClient.getReconciliationStatus(guessedPlainId, payPeriodBytes32)).to.equal(0n); // NoRecord
 
     const storedContribution = await reconciliationLedger.contributions(
       ethers.solidityPackedKeccak256(["bytes32", "bytes32"], [employeeIdBytes32, payPeriodBytes32])
@@ -147,7 +158,7 @@ describe("integration: real deployed contracts on a local chain", function () {
   });
 
   it("reaches Matched status once the custodian also records a matching remittance on-chain", async function () {
-    const employeeIdBytes32 = toBytes32Id("emp-integration-001");
+    const employeeIdBytes32 = toLedgerEmployeeId("emp-integration-001", TEST_EMPLOYEE_ID_KEY);
     const payPeriodBytes32 = toBytes32Id("2026-P-integration");
 
     const stored = await reconciliationLedger.contributions(
