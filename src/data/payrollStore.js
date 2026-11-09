@@ -397,6 +397,32 @@ function openPayrollStore(path = ":memory:") {
       return row.total;
     },
 
+    /**
+     * Month-to-date: gross pay and local withholding in paid results whose
+     * pay date falls in the same calendar month as payDate, before it. For
+     * monthly local taxes (Denver's occupational privilege tax).
+     */
+    monthToDate(employeeId, payDate) {
+      const month = payDate.slice(0, 7);
+      const rows = db
+        .prepare(
+          `SELECT r.gross_pay_cents AS gross, r.local_withholding_json AS local
+           FROM payroll_results r JOIN pay_periods p ON p.id = r.pay_period_id
+           WHERE r.employee_id = ? AND r.outcome = 'paid'
+             AND substr(p.pay_date, 1, 7) = ? AND p.pay_date < ?`
+        )
+        .all(employeeId, month, payDate);
+      const localities = {};
+      let grossCents = 0;
+      for (const row of rows) {
+        grossCents += row.gross;
+        for (const [code, cents] of Object.entries(row.local ? JSON.parse(row.local) : {})) {
+          localities[code] = (localities[code] ?? 0) + cents;
+        }
+      }
+      return { grossCents, localities };
+    },
+
     getResult(employeeId, payPeriodId) {
       const row = db
         .prepare("SELECT * FROM payroll_results WHERE employee_id = ? AND pay_period_id = ?")

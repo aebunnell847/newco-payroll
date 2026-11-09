@@ -23,7 +23,8 @@
 //
 // IT-2104 input: { filingStatus: "single" | "married" | "marriedAtSingleRate",
 //   stateAllowances (line 1, also used for Yonkers), nycAllowances (line 2),
-//   nycResident, yonkersResident, additionalStateCents (line 3),
+//   nycResident, yonkersResident, worksInYonkers (employer-set; see the
+//   nonresident earnings tax below), additionalStateCents (line 3),
 //   additionalNycCents (line 4), additionalYonkersCents (line 5) }.
 // "single" covers head of household (IT-2104: mark Single or Head of household).
 //
@@ -34,9 +35,16 @@
 // higher-withholding choice, and says so (formBasis). City residency comes
 // from the IT-2104, so with no IT-2104 no city tax is withheld.
 //
-// Not covered: the Yonkers NONRESIDENT earnings tax (0.5% of wages earned
-// in Yonkers, Method VII), and pay frequencies other than daily, weekly,
-// biweekly, semimonthly, monthly and annual.
+// Yonkers NONRESIDENT earnings tax (NYS-50-T-Y, Method VIII, annualized):
+// for an employee who works in Yonkers but doesn't live there - a fact the
+// employer knows, so it's an extra form field, `worksInYonkers`. Annualize,
+// skip under $4,000, subtract the exclusion for the line ($3,000 to
+// $10,000; $2,000 to $20,000; $1,000 to $30,000; none above), x 0.50%,
+// divide by the periods. Returned as the YONKERS_NR locality. The booklet's
+// example ($400 semimonthly -> $1.38) is in the tests.
+//
+// Not covered: pay frequencies other than daily, weekly, biweekly,
+// semimonthly, monthly and annual.
 
 /* eslint-disable prettier/prettier */
 const TABLES = {
@@ -88,6 +96,17 @@ const TABLES = {
       method3: null,
     },
     yonkersSurchargeRate: 0.1675,
+    // NYS-50-T-Y Method VIII: [annualized pay over (cents), exclusion (cents)]
+    yonkersNonresident: {
+      rateBp: 50,
+      noTaxUpToCents: 3_999_99,
+      exclusions: [
+        [3_999_99, 3_000_00],
+        [10_000_00, 2_000_00],
+        [20_000_00, 1_000_00],
+        [30_000_00, 0],
+      ],
+    },
     sources: [
       "NYS-50-T-NYS (1/26), New York State Withholding Tax Tables and Methods: https://www.tax.ny.gov/pdf/publications/withholding/nys50_t_nys.pdf",
       "NYS-50-T-NYC (1/26), New York City Withholding Tax Tables and Methods: https://www.tax.ny.gov/pdf/publications/withholding/nys50_t_nyc.pdf",
@@ -121,6 +140,16 @@ function validateForm(form) {
     fail("New York City allowances or additional withholding given for a non-resident");
   }
   if (!form.yonkersResident && form.additionalYonkersCents) fail("Yonkers additional withholding given for a non-resident");
+  if (form.worksInYonkers !== undefined && typeof form.worksInYonkers !== "boolean") fail("worksInYonkers must be true or false");
+}
+
+/** Yonkers nonresident earnings tax, NYS-50-T-Y Method VIII. */
+function yonkersNonresidentCents(y, wagesCents, payPeriodsPerYear) {
+  const annual = wagesCents * payPeriodsPerYear;
+  if (annual <= y.noTaxUpToCents) return 0;
+  let exclusion = 0;
+  for (const [over, ex] of y.exclusions) if (annual > over) exclusion = ex;
+  return Math.round(((annual - exclusion) * y.rateBp) / 10_000 / payPeriodsPerYear);
 }
 
 /** One jurisdiction's Method II (and Method III, if it has one). */
@@ -183,6 +212,8 @@ function compute({ taxYear, wagesCents, payPeriodsPerYear, form, federalW4 = nul
   }
   if (f.yonkersResident) {
     localities.YONKERS = Math.round(state.cents * t.yonkersSurchargeRate) + (f.additionalYonkersCents ?? 0);
+  } else if (f.worksInYonkers) {
+    localities.YONKERS_NR = yonkersNonresidentCents(t.yonkersNonresident, wagesCents, payPeriodsPerYear);
   }
 
   return {
