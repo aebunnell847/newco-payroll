@@ -19,7 +19,14 @@
 //   "gross"                    - 401(k) deferrals are taxed (PA)
 //   "none"                     - no state income tax (TX, FL, WA)
 
-const MODULES = [require("./ca"), require("./il"), require("./ny"), require("./pa"), ...require("./noIncomeTax")];
+const MODULES = [
+  require("./ca"),
+  require("./il"),
+  require("./nj"),
+  require("./ny"),
+  require("./pa"),
+  ...require("./noIncomeTax"),
+];
 const BY_CODE = Object.freeze(Object.fromEntries(MODULES.map((m) => [m.code, m])));
 
 function getStateModule(code, taxYear) {

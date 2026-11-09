@@ -222,6 +222,7 @@ with its own sources and tax years.
 |---|---|---|---|---|
 | CA | EDD Method B, annual method, DE 4 | Gross minus pre-tax 401(k) (EDD DE 231A) | Single, 0 allowances (DE 44) | 2026 |
 | IL | IL-700-T automated method, IL-W-4 | Gross minus pre-tax 401(k) (86 Ill. Adm. Code 100.7010) | No exemptions (IL-W-4) | 2025, 2026 |
+| NJ | Rate Tables A-E per payroll period, NJ-W4 (A for single/separate, B for joint/HoH/widow(er), or the table chosen on line 3) | Gross minus 401(k) up to the federal limit (NJ-WT) | Rate A, 0 allowances (current NJ-WT is silent; this is the higher-withholding choice) | 2025, 2026 |
 | NY | NYS-50-T Method II per pay frequency, Method III top rates, IT-2104; **plus NYC resident tax and Yonkers resident surcharge** | Gross minus pre-tax 401(k) (NYS-50) | Single, 0 allowances; a pre-2020 federal W-4's allowances if that's what's on file (NYS-50); no city tax | 2026 |
 | PA | Flat 3.07% | **Gross; 401(k) deferrals are taxed** (REV-415) | No certificate exists | 2025, 2026 |
 | TX, FL, WA | No individual income tax | n/a | n/a | 2025, 2026 |
@@ -232,6 +233,14 @@ How the figures are checked:
   the cent. C and D come within 2 cents, because EDD worked those with its
   per-period tables while this uses the annual method EDD allows.
 - **Illinois.** Both years' booklet examples match to the cent.
+- **New Jersey.** `tools/state/generate_nj.py` generates all 40 tables
+  (Rates A-E, 8 payroll periods) from the Division's PDF.
+  - It corrects and reports two print defects in that PDF: "$15.000" for
+    $15,000, and an 11.8% rate typeset as "1   1.8%".
+  - It asserts every table runs from 1.5% to 11.8%.
+  - NJ-WT's worked examples still use pre-2020 bracket edges. The three
+    that fall in brackets that haven't changed match to the cent; the other
+    three are within 2 cents.
 - **New York.** `tools/state/generate_ny.py` generates the State, NYC and
   Yonkers tables from the Tax Department's 2026 booklets.
   - The generator checks every published allowance (Table A) against
@@ -260,7 +269,9 @@ Not modeled yet:
   Yonkers *nonresident* earnings tax (0.5% of wages earned in Yonkers);
 - New York pay frequencies other than daily, weekly, biweekly,
   semimonthly, monthly and annual;
-- reciprocity agreements and resident-state credits.
+- reciprocity agreements and resident-state credits (for example, a
+  Pennsylvania resident working in New Jersey who files NJ-165 is
+  withheld on by neither state's rules here yet).
 
 ## Not modeled yet
 - supplemental-wage (bonus) flat rates;
