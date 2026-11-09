@@ -14,7 +14,8 @@ const { toLedgerEmployeeId, parseEmployeeIdKey } = require("../chain/ledgerIds")
  * runPayrollBatch
  * -----------------
  * employees: array of employee objects (see src/models/Employee.js)
- * payPeriod: { id, regularHours?, overtimeHours? }
+ * payPeriod: { id, taxYear, regularHours?, overtimeHours? } - taxYear is
+ *            the year the pay date falls in; it picks the IRS limits.
  * options:
  *   chainClient            - the object returned by createChainClient(),
  *                             or null/undefined to skip all chain calls
@@ -28,6 +29,8 @@ const { toLedgerEmployeeId, parseEmployeeIdKey } = require("../chain/ledgerIds")
  *                             derive each employee's on-chain ID; see
  *                             chain/ledgerIds.js. Required whenever
  *                             chainClient is set.
+ *   plan                   - { allowsCatchUp?: boolean } plan features;
+ *                             catch-up is off unless the plan says so.
  *
  * Returns an array of { employee, result, ledgerEntry?, skipped?,
  * skipReason?, error? } so the caller can see exactly what happened for
@@ -46,6 +49,7 @@ async function runPayrollBatch(employees, payPeriod, options = {}) {
     consentAttestationFor = () => null,
     yearToDateDeferralFor = () => 0,
     employeeIdKey = null,
+    plan = {},
   } = options;
 
   // Validate the key once, before touching anyone: a missing or weak key
@@ -77,7 +81,7 @@ async function runPayrollBatch(employees, payPeriod, options = {}) {
       }
 
       const yearToDateDeferralCents = yearToDateDeferralFor(employee);
-      const result = runPayrollForEmployee(employee, payPeriod, yearToDateDeferralCents);
+      const result = runPayrollForEmployee(employee, payPeriod, yearToDateDeferralCents, plan);
 
       let ledgerEntry;
       if (chainClient) {

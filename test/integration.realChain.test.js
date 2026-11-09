@@ -127,7 +127,7 @@ describe("integration: real deployed contracts on a local chain", function () {
       payPeriodsPerYear: 26,
       deferralElectionPct: 6,
     };
-    const payPeriod = { id: "2026-P-integration" };
+    const payPeriod = { id: "2026-P-integration", taxYear: 2026 };
 
     const outcomes = await runPayrollBatch([employee], payPeriod, {
       chainClient,
@@ -194,7 +194,7 @@ describe("integration: real deployed contracts on a local chain", function () {
     const employees = ["emp-remit-A", "emp-remit-B"].map((id) => ({
       id, payType: "salary", annualSalaryCents: 104_000_00, payPeriodsPerYear: 26, deferralElectionPct: 5,
     }));
-    const outcomes = await runPayrollBatch(employees, { id: "2026-P-remit" }, {
+    const outcomes = await runPayrollBatch(employees, { id: "2026-P-remit", taxYear: 2026 }, {
       chainClient,
       employeeIdKey: TEST_EMPLOYEE_ID_KEY,
       consentAttestationFor: (e) => attestations[e.id],

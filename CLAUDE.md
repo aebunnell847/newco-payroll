@@ -28,9 +28,12 @@ component implements).
 1. Money is always integer cents, never floating-point dollars. This
    matches `ReconciliationLedger.sol`'s convention.
 2. Anything that depends on current tax law, withholding tables, or IRS
-   contribution limits must be clearly marked PLACEHOLDER until it's
-   wired to the regulatory RAG system in `newco-docs` - never let an LLM
-   or a hardcoded guess quietly stand in for a real regulatory figure.
+   contribution limits is either (a) copied from a regulator's primary
+   source into a table keyed by tax year, cited per figure, and pinned
+   by a test (see `regulatory/irsLimits.js`), or (b) clearly marked
+   PLACEHOLDER. Never let an LLM or a hardcoded guess quietly stand in
+   for a real regulatory figure, and never fall back to another year's
+   figures when a year is missing - throw instead.
 3. Keep the layers separated: `payrollEngine.js` (pure math, no I/O),
    `chain/contracts.js` (the only file touching the blockchain),
    `payrollRun.js` (orchestration). This is what makes every unit test
@@ -54,11 +57,10 @@ component implements).
 
 ## Natural next steps
 
-- Wire a real local Hardhat node + deployed `ConsentRegistry`/
-  `ReconciliationLedger` and add an integration test exercising
-  `chain/contracts.js` against it for real (currently only tested against
-  a hand-written fake).
-- Replace the two PLACEHOLDER constants in `payrollEngine.js` with calls
-  into the regulatory RAG system once it exists.
+- Replace the PLACEHOLDER withholding rates in `payrollEngine.js` with
+  real IRS Publication 15-T and state withholding, sourced the same way
+  as `regulatory/irsLimits.js`.
+- Generate `regulatory/irsLimits.js` entries from the regulatory RAG
+  system once it exists (same shape, same citations, same tests).
 - Add a minimal data layer for employee/pay-period records (currently
   these are passed in as plain objects by the caller).

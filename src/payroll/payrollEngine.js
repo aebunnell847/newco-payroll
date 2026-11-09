@@ -11,24 +11,23 @@
 // the classic "floating point rounding error turns into a payroll
 // discrepancy" bug class entirely.
 
+const { annualDeferralCapCents, rothCatchUpRequired } = require("../regulatory/irsLimits");
+
 /**
- * IMPORTANT: the tax and contribution-limit numbers below are PLACEHOLDERS,
- * not verified current figures. They exist so the math has something to run
- * against while this is being built. Before this is used for anything real:
- *   - Federal/state/local tax withholding must come from the RAG-over-
- *     regulatory-text system described in research/regulatory-rag-architecture.md
- *     (IRS/Treasury partition), not a hardcoded flat rate.
- *   - The 401(k) elective deferral limit must come from the current IRS
- *     annual limit (it changes most years) via the same system, not a
- *     hardcoded number here.
- * Hardcoding either of these and shipping it would violate the whole point
- * of NewCo's "minimize raw LLM/guessed knowledge, ground everything in
- * regulator source text" design goal.
+ * IMPORTANT: the tax withholding rates below are PLACEHOLDERS, not real
+ * withholding. Federal/state/local withholding must come from the IRS
+ * (Publication 15-T) and state sources via the regulatory RAG system
+ * described in research/regulatory-rag-architecture.md, not a hardcoded
+ * flat rate. Hardcoding them and shipping it would violate NewCo's "ground
+ * everything in regulator source text" design goal.
+ *
+ * The 401(k) deferral limits are no longer placeholders: they come from
+ * src/regulatory/irsLimits.js, a table copied from IRS notices with
+ * citations, keyed by tax year.
  */
 const PLACEHOLDER_CONFIG = {
   flatFederalWithholdingRate: 0.12, // NOT a real bracket calculation
   flatStateWithholdingRate: 0.05, // NOT a real state calculation
-  annual401kElectiveDeferralLimitCents: 23_500_00, // PLACEHOLDER - verify via RAG system before real use
 };
 
 /**
@@ -81,26 +80,67 @@ function computeTaxWithholdingCents(grossPayCents) {
  * compute401kDeferralCents
  * -------------------------
  * The employee's elected deferral percentage, applied to gross pay, capped
- * so year-to-date deferrals never exceed the annual IRS limit. This is the
- * number that eventually gets reported to ReconciliationLedger.recordContribution
- * as "what payroll withheld."
+ * so year-to-date deferrals never exceed the IRS limit for the tax year
+ * (see src/regulatory/irsLimits.js). This is the number that eventually
+ * gets reported to ReconciliationLedger.recordContribution as "what
+ * payroll withheld."
+ *
+ * options:
+ *   taxYear            - required. The year the pay date falls in (that is
+ *                        the year a deferral counts toward). There is no
+ *                        default year on purpose.
+ *   planAllowsCatchUp  - whether the plan offers catch-up contributions.
+ *                        Defaults to false: deferring too little can be
+ *                        fixed next period, an excess deferral needs a
+ *                        corrective distribution.
+ *
+ * Catch-up eligibility uses employee.birthYear. Whether catch-up dollars
+ * must be Roth (IRC 414(v)(7)) uses employee.priorYearFicaWagesCents and
+ * is reported, not acted on: this engine doesn't split pre-tax and Roth.
  */
-function compute401kDeferralCents(grossPayCents, employee, yearToDateDeferralCents = 0) {
+function compute401kDeferralCents(grossPayCents, employee, yearToDateDeferralCents = 0, options = {}) {
+  const { taxYear, planAllowsCatchUp = false } = options;
+  if (taxYear === undefined || taxYear === null) {
+    throw new Error("taxYear is required to look up the IRS deferral limit");
+  }
+
   const electionPct = employee.deferralElectionPct || 0;
   if (electionPct < 0 || electionPct > 100) {
     throw new Error("deferralElectionPct must be between 0 and 100");
   }
 
+  const cap = annualDeferralCapCents({
+    taxYear,
+    birthYear: employee.birthYear,
+    planAllowsCatchUp,
+  });
+
   const requestedCents = Math.round(grossPayCents * (electionPct / 100));
-  const remainingRoomCents = Math.max(
-    0,
-    PLACEHOLDER_CONFIG.annual401kElectiveDeferralLimitCents - yearToDateDeferralCents
-  );
+  const remainingRoomCents = Math.max(0, cap.totalCents - yearToDateDeferralCents);
 
   const actualCents = Math.min(requestedCents, remainingRoomCents);
   const cappedByAnnualLimit = actualCents < requestedCents;
 
-  return { requestedCents, actualCents, cappedByAnnualLimit };
+  // The part of this period's deferral that sits above the base 402(g)
+  // limit, i.e. counts as catch-up.
+  const catchUpPortionCents =
+    Math.max(0, yearToDateDeferralCents + actualCents - cap.baseLimitCents) -
+    Math.max(0, yearToDateDeferralCents - cap.baseLimitCents);
+
+  return {
+    requestedCents,
+    actualCents,
+    cappedByAnnualLimit,
+    taxYear,
+    annualLimitCents: cap.totalCents,
+    catchUpBand: cap.catchUpBand,
+    catchUpPortionCents,
+    rothCatchUpRequired: rothCatchUpRequired({
+      taxYear,
+      catchUpPortionCents,
+      priorYearFicaWagesCents: employee.priorYearFicaWagesCents,
+    }),
+  };
 }
 
 /**
@@ -111,11 +151,17 @@ function compute401kDeferralCents(grossPayCents, employee, yearToDateDeferralCen
  * the ReconciliationLedger as a ContributionRecord. This function does NOT
  * talk to the blockchain itself - see src/chain/contracts.js for that - so
  * it stays trivially unit-testable.
+ *
+ * payPeriod.taxYear is required (see compute401kDeferralCents).
+ * plan: { allowsCatchUp?: boolean } - plan-level features.
  */
-function runPayrollForEmployee(employee, payPeriod, yearToDateDeferralCents = 0) {
+function runPayrollForEmployee(employee, payPeriod, yearToDateDeferralCents = 0, plan = {}) {
   const grossPayCents = computeGrossPayCents(employee, payPeriod);
   const withholding = computeTaxWithholdingCents(grossPayCents);
-  const deferral = compute401kDeferralCents(grossPayCents, employee, yearToDateDeferralCents);
+  const deferral = compute401kDeferralCents(grossPayCents, employee, yearToDateDeferralCents, {
+    taxYear: payPeriod.taxYear,
+    planAllowsCatchUp: Boolean(plan.allowsCatchUp),
+  });
 
   const netPayCents =
     grossPayCents - withholding.totalCents - deferral.actualCents;

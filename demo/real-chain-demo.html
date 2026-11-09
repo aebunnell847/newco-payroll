@@ -283,10 +283,10 @@ document.getElementById("revokeBtn").addEventListener("click", async () => {
 });
 
 function computePayroll(annualSalaryCents, payPeriods, deferralPct) {
-  // Mirrors src/payroll/payrollEngine.js exactly - these rates and the
-  // annual 401(k) limit are PLACEHOLDERS, not verified figures. See that
-  // file's comments for why: they belong in the regulatory RAG system,
-  // not hardcoded here or there.
+  // Simplified from src/payroll/payrollEngine.js: the withholding rates
+  // are the same PLACEHOLDERS, not real withholding. The demo runs one
+  // period from a zero balance, so it skips the annual IRS limit check
+  // the engine applies (src/regulatory/irsLimits.js).
   const grossPayCents = Math.round(annualSalaryCents / payPeriods);
   const federal = Math.round(grossPayCents * 0.12);
   const state = Math.round(grossPayCents * 0.05);

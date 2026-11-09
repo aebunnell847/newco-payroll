@@ -39,7 +39,7 @@ const salariedEmployee = (id, deferralElectionPct = 5) => ({
 describe("runPayrollBatch (no chain client - dry run)", () => {
   it("computes payroll for every employee without needing consent or a chain at all", async () => {
     const employees = [salariedEmployee("emp-001"), salariedEmployee("emp-002")];
-    const payPeriod = { id: "2026-P01" };
+    const payPeriod = { id: "2026-P01", taxYear: 2026 };
 
     const outcomes = await runPayrollBatch(employees, payPeriod, {});
 
@@ -50,12 +50,32 @@ describe("runPayrollBatch (no chain client - dry run)", () => {
       expect(outcome.result.grossPayCents).to.equal(400_000);
     }
   });
+
+  it("applies the plan's catch-up setting to every employee in the batch", async () => {
+    const over50 = { ...salariedEmployee("emp-001", 100), birthYear: 1971 };
+    const atBaseLimit = () => 24_500_00;
+    const payPeriod = { id: "2026-P01", taxYear: 2026 };
+
+    const [without] = await runPayrollBatch([over50], payPeriod, { yearToDateDeferralFor: atBaseLimit });
+    const [withCatchUp] = await runPayrollBatch([over50], payPeriod, {
+      yearToDateDeferralFor: atBaseLimit,
+      plan: { allowsCatchUp: true },
+    });
+
+    expect(without.result.contribution401k.actualCents).to.equal(0);
+    expect(withCatchUp.result.contribution401k.actualCents).to.equal(400_000);
+  });
+
+  it("fails an employee, not the batch, when the pay period has no tax year", async () => {
+    const outcomes = await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01" }, {});
+    expect(outcomes[0].error).to.match(/taxYear is required/);
+  });
 });
 
 describe("runPayrollBatch (with a chain client)", () => {
   it("skips an employee with no consent attestation on file, rather than proceeding anyway", async () => {
     const employees = [salariedEmployee("emp-001")];
-    const payPeriod = { id: "2026-P01" };
+    const payPeriod = { id: "2026-P01", taxYear: 2026 };
     const chainClient = makeFakeChainClient({});
 
     const outcomes = await runPayrollBatch(employees, payPeriod, {
@@ -71,7 +91,7 @@ describe("runPayrollBatch (with a chain client)", () => {
 
   it("hard-stops an employee whose consent attestation exists but is not active", async () => {
     const employees = [salariedEmployee("emp-001")];
-    const payPeriod = { id: "2026-P01" };
+    const payPeriod = { id: "2026-P01", taxYear: 2026 };
     const chainClient = makeFakeChainClient({ consentActiveByAttestation: { "attn-1": false } });
 
     const outcomes = await runPayrollBatch(employees, payPeriod, {
@@ -86,7 +106,7 @@ describe("runPayrollBatch (with a chain client)", () => {
 
   it("records a contribution to the ledger when consent is active", async () => {
     const employees = [salariedEmployee("emp-001")];
-    const payPeriod = { id: "2026-P01" };
+    const payPeriod = { id: "2026-P01", taxYear: 2026 };
     const chainClient = makeFakeChainClient({ consentActiveByAttestation: { "attn-1": true } });
 
     const outcomes = await runPayrollBatch(employees, payPeriod, {
@@ -104,7 +124,7 @@ describe("runPayrollBatch (with a chain client)", () => {
 
   it("isolates one employee's failure from the rest of the batch", async () => {
     const employees = [salariedEmployee("emp-broken"), salariedEmployee("emp-ok")];
-    const payPeriod = { id: "2026-P01" };
+    const payPeriod = { id: "2026-P01", taxYear: 2026 };
     const chainClient = makeFakeChainClient({
       consentActiveByAttestation: { "attn-broken": false, "attn-ok": true },
     });
@@ -128,7 +148,7 @@ describe("runPayrollBatch (on-chain employee IDs)", () => {
   it("records the keyed ledger ID, never a plain hash of the employee ID", async () => {
     const chainClient = makeFakeChainClient({ consentActiveByAttestation: { "attn-1": true } });
 
-    await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01" }, {
+    await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01", taxYear: 2026 }, {
       chainClient,
       employeeIdKey: TEST_EMPLOYEE_ID_KEY,
       consentAttestationFor: () => "attn-1",
@@ -143,7 +163,7 @@ describe("runPayrollBatch (on-chain employee IDs)", () => {
     const chainClient = makeFakeChainClient({ consentActiveByAttestation: { "attn-1": true } });
     let error;
     try {
-      await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01" }, {
+      await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01", taxYear: 2026 }, {
         chainClient,
         consentAttestationFor: () => "attn-1",
       });
@@ -159,7 +179,7 @@ describe("runPayrollBatch (on-chain employee IDs)", () => {
     const chainClient = makeFakeChainClient({ consentActiveByAttestation: { "attn-1": true } });
     let error;
     try {
-      await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01" }, {
+      await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01", taxYear: 2026 }, {
         chainClient,
         employeeIdKey: "ab".repeat(16),
         consentAttestationFor: () => "attn-1",
@@ -172,7 +192,7 @@ describe("runPayrollBatch (on-chain employee IDs)", () => {
   });
 
   it("does not need a key for a dry run with no chain client", async () => {
-    const outcomes = await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01" }, {});
+    const outcomes = await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01", taxYear: 2026 }, {});
     expect(outcomes[0].result).to.exist;
   });
 });
@@ -183,7 +203,7 @@ describe("runPayrollBatch (ledger entries for remittance instructions)", () => {
 
   it("returns the ledger entry it wrote, using the keyed employee ID", async () => {
     const chainClient = makeFakeChainClient({ consentActiveByAttestation: { "attn-1": true } });
-    const [outcome] = await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01" }, {
+    const [outcome] = await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01", taxYear: 2026 }, {
       chainClient,
       employeeIdKey: TEST_EMPLOYEE_ID_KEY,
       consentAttestationFor: () => "attn-1",
@@ -198,11 +218,11 @@ describe("runPayrollBatch (ledger entries for remittance instructions)", () => {
   });
 
   it("has no ledger entry for a dry run or a skipped employee", async () => {
-    const [dry] = await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01" }, {});
+    const [dry] = await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01", taxYear: 2026 }, {});
     expect(dry.ledgerEntry).to.be.undefined;
 
     const chainClient = makeFakeChainClient({});
-    const [skipped] = await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01" }, {
+    const [skipped] = await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01", taxYear: 2026 }, {
       chainClient,
       employeeIdKey: TEST_EMPLOYEE_ID_KEY,
       consentAttestationFor: () => null,
