@@ -176,3 +176,38 @@ describe("runPayrollBatch (on-chain employee IDs)", () => {
     expect(outcomes[0].result).to.exist;
   });
 });
+
+describe("runPayrollBatch (ledger entries for remittance instructions)", () => {
+  const { toLedgerEmployeeId } = require("../src/chain/ledgerIds");
+  const { toBytes32Id } = require("../src/chain/contracts");
+
+  it("returns the ledger entry it wrote, using the keyed employee ID", async () => {
+    const chainClient = makeFakeChainClient({ consentActiveByAttestation: { "attn-1": true } });
+    const [outcome] = await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01" }, {
+      chainClient,
+      employeeIdKey: TEST_EMPLOYEE_ID_KEY,
+      consentAttestationFor: () => "attn-1",
+    });
+    const written = chainClient.recordedContributions[0];
+    expect(outcome.ledgerEntry).to.deep.equal({
+      ledgerEmployeeId: toLedgerEmployeeId("emp-001", TEST_EMPLOYEE_ID_KEY),
+      ledgerPayPeriodId: toBytes32Id("2026-P01"),
+      amountCents: written.amountCents,
+      withheldAt: written.withheldAt,
+    });
+  });
+
+  it("has no ledger entry for a dry run or a skipped employee", async () => {
+    const [dry] = await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01" }, {});
+    expect(dry.ledgerEntry).to.be.undefined;
+
+    const chainClient = makeFakeChainClient({});
+    const [skipped] = await runPayrollBatch([salariedEmployee("emp-001")], { id: "2026-P01" }, {
+      chainClient,
+      employeeIdKey: TEST_EMPLOYEE_ID_KEY,
+      consentAttestationFor: () => null,
+    });
+    expect(skipped.skipped).to.equal(true);
+    expect(skipped.ledgerEntry).to.be.undefined;
+  });
+});

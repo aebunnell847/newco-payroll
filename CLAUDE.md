@@ -45,6 +45,12 @@ component implements).
    `chain/ledgerIds.js` (a keyed HMAC). Never write `toBytes32Id`, or
    any other unkeyed hash, of an employee identifier to the ledger:
    it is public and a plain hash of a guessable ID is reversible.
+6. Payroll is the system of record for employee IDs. The employee-ID key
+   never goes to the custodian or any other party; the custodian gets
+   ledger IDs through the remittance file (`remittance/instructions.js`)
+   and `custodian/` code must never import `chain/ledgerIds.js` or read
+   the key (a test enforces this). The custodian records the amount it
+   actually received, never payroll's instructed amount.
 
 ## Natural next steps
 
