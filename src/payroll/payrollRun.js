@@ -29,9 +29,16 @@ const { toLedgerEmployeeId, parseEmployeeIdKey } = require("../chain/ledgerIds")
  *                             chain/ledgerIds.js. Required whenever
  *                             chainClient is set.
  *
- * Returns an array of { employee, result, skipped?, skipReason?, error? }
- * so the caller can see exactly what happened for every employee, not
- * just an aggregate pass/fail.
+ * Returns an array of { employee, result, ledgerEntry?, skipped?,
+ * skipReason?, error? } so the caller can see exactly what happened for
+ * every employee, not just an aggregate pass/fail.
+ *
+ * ledgerEntry is set only when a contribution was actually written to the
+ * chain: { ledgerEmployeeId, ledgerPayPeriodId, amountCents, withheldAt }.
+ * It is what payroll sends the custodian (see remittance/instructions.js),
+ * so the custodian can record against the same ledger IDs without ever
+ * holding the employee-ID key. Payroll is the system of record for that
+ * mapping.
  */
 async function runPayrollBatch(employees, payPeriod, options = {}) {
   const {
@@ -72,6 +79,7 @@ async function runPayrollBatch(employees, payPeriod, options = {}) {
       const yearToDateDeferralCents = yearToDateDeferralFor(employee);
       const result = runPayrollForEmployee(employee, payPeriod, yearToDateDeferralCents);
 
+      let ledgerEntry;
       if (chainClient) {
         const employeeIdBytes32 = toLedgerEmployeeId(employee.id, employeeIdKey);
         const payPeriodBytes32 = toBytes32Id(payPeriod.id);
@@ -83,9 +91,16 @@ async function runPayrollBatch(employees, payPeriod, options = {}) {
           result.contribution401k.actualCents,
           withheldAt
         );
+
+        ledgerEntry = {
+          ledgerEmployeeId: employeeIdBytes32,
+          ledgerPayPeriodId: payPeriodBytes32,
+          amountCents: result.contribution401k.actualCents,
+          withheldAt,
+        };
       }
 
-      outcomes.push({ employee, result });
+      outcomes.push(ledgerEntry ? { employee, result, ledgerEntry } : { employee, result });
     } catch (error) {
       // Record the failure per-employee and keep going - one employee's
       // problem (bad data, consent revoked, a chain call failing) should

@@ -52,7 +52,10 @@ function createChainClient(config) {
   // service sends several transactions back-to-back against a fast,
   // auto-mining local node. Learned the hard way in newco-contracts' tests.
   const provider = new ethers.JsonRpcProvider(config.rpcUrl, undefined, { cacheTimeout: -1 });
-  const signer = new ethers.Wallet(config.payrollSignerPrivateKey, provider);
+  // signerPrivateKey lets the same wrapper act as the custodian (which
+  // records remittances); payrollSignerPrivateKey is kept for existing
+  // payroll callers.
+  const signer = new ethers.Wallet(config.signerPrivateKey || config.payrollSignerPrivateKey, provider);
 
   const consentRegistry = new ethers.Contract(
     config.consentRegistryAddress,
