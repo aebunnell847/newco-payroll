@@ -26,10 +26,10 @@ describe("Kentucky (42A003 2026 formula)", () => {
     expect(at(ky, 1_500_00, 26, { additionalWithholdingCents: 5_00 }).stateCents).to.equal(52_98);
   });
 
-  it("has no 2025 figures yet", () => {
+  it("has no 2024 figures (2025: test/state2025.test.js)", () => {
     expect(() =>
-      computeStateWithholdingCents({ state: "KY", taxYear: 2025, grossPayCents: 1, federalTaxableWagesCents: 1, payPeriodsPerYear: 26 })
-    ).to.throw(/Kentucky withholding for tax year 2025/);
+      computeStateWithholdingCents({ state: "KY", taxYear: 2024, grossPayCents: 1, federalTaxableWagesCents: 1, payPeriodsPerYear: 26 })
+    ).to.throw(/Kentucky withholding for tax year 2024/);
   });
 });
 

@@ -19,6 +19,12 @@ const { formChecker, onFile } = require("./formUtil");
 const ALLOWED_RATES = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5];
 
 const TABLES = Object.freeze({
+  2025: Object.freeze({
+    defaultRatePercent: 2,
+    sources: Object.freeze([
+      "AZ DOR, Employer's Instructions for the Arizona Form A-4 (2025): https://azdor.gov/sites/default/files/document/FORMS_WITHHOLDING_2025_A-4i.pdf",
+    ]),
+  }),
   2026: Object.freeze({
     defaultRatePercent: 2,
     sources: Object.freeze([

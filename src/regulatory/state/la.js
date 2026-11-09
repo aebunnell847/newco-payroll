@@ -24,6 +24,13 @@
 const { formChecker, onFile } = require("./formUtil");
 
 const TABLES = Object.freeze({
+  2025: Object.freeze({
+    withholdingRateBp: 309,
+    standardDeductionCents: Object.freeze({ 1: 12_500_00, 2: 25_000_00 }),
+    sources: Object.freeze([
+      "Louisiana DOR, R-1306 (1/25) Louisiana Withholding Tables and Formulas, effective on or after January 1, 2025: https://dam.ldr.la.gov/taxforms/1306-1-25.pdf",
+    ]),
+  }),
   2026: Object.freeze({
     withholdingRateBp: 309,
     standardDeductionCents: Object.freeze({ 1: 12_875_00, 2: 25_750_00 }),
