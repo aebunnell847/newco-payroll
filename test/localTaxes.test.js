@@ -72,3 +72,30 @@ describe("Denver occupational privilege tax ($5.75 a month at $500)", () => {
     expect(r.formBasis).to.equal("none-on-file-single");
   });
 });
+
+describe("Ohio school district income tax (2026 SDIT list)", () => {
+  const oh = require("../src/regulatory/state/oh");
+  const at = (wagesCents, form) => oh.compute({ taxYear: 2026, wagesCents, payPeriodsPerYear: 52, form, payDate: "2026-11-06" });
+
+  it("has the 214 districts from the Department's list, 68 earned-income-only", () => {
+    const d = oh.TABLES[2026].schoolDistricts;
+    expect(Object.keys(d)).to.have.length(214);
+    expect(Object.values(d).filter((x) => x.earnedIncomeOnly)).to.have.length(68);
+    expect(d["2514"]).to.include({ rateBp: 75, earnedIncomeOnly: true }); // Westerville CSD, new for 2026
+    expect(d["8701"]).to.include({ rateBp: 125, earnedIncomeOnly: false }); // Bowling Green CSD, raised for 2026
+  });
+
+  it("traditional base: (wages - $12.50 per exemption) x rate", () => {
+    const r = at(1_000_00, { exemptions: 2, schoolDistrict: "8701" });
+    expect(r.localities).to.deep.equal({ OH_SD_8701: Math.round((1_000_00 - 25_00) * 0.0125) });
+  });
+
+  it("earned-income-only base: all wages x rate, no exemption", () => {
+    expect(at(1_000_00, { exemptions: 2, schoolDistrict: "2514" }).localities).to.deep.equal({ OH_SD_2514: 7_50 });
+  });
+
+  it("no district, no school district tax; an unknown district number is refused", () => {
+    expect(at(1_000_00, { exemptions: 1 }).localities).to.deep.equal({});
+    expect(() => at(1_000_00, { exemptions: 1, schoolDistrict: "9999" })).to.throw(/schoolDistrict must be a taxing Ohio school district/);
+  });
+});
