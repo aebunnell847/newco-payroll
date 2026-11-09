@@ -145,7 +145,40 @@ describe("payrollStore: records", () => {
       const old = new DatabaseSync(file);
       old.exec("CREATE TABLE employees (id TEXT PRIMARY KEY)"); // a v1-era file: user_version 0
       old.close();
-      expect(() => openPayrollStore(file)).to.throw(/schema version 0, this code needs 4/);
+      expect(() => openPayrollStore(file)).to.throw(/schema version 0, this code needs 5/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("migrates a version 4 database in place (adds the reciprocity fields)", () => {
+    const fs = require("node:fs");
+    const os = require("node:os");
+    const path = require("node:path");
+    const { DatabaseSync } = require("node:sqlite");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "newco-payroll-"));
+    const file = path.join(dir, "v4.db");
+    try {
+      const s = openPayrollStore(file);
+      s.upsertEmployee({ id: "a", payType: "salary", annualSalaryCents: 52_000_00, payPeriodsPerYear: 26, workState: "TX" });
+      s.close();
+      // Turn it back into a version 4 file: no reciprocity columns, no state_code.
+      const db = new DatabaseSync(file);
+      for (const c of ["residence_state", "residence_state_w4_json", "reciprocity_certificate"]) {
+        db.exec(`ALTER TABLE employees DROP COLUMN ${c}`);
+      }
+      db.exec("ALTER TABLE payroll_results DROP COLUMN state_code");
+      db.exec("PRAGMA user_version = 4");
+      db.close();
+
+      const migrated = openPayrollStore(file);
+      try {
+        expect(migrated.getEmployee("a")).to.include({ workState: "TX", reciprocityCertificate: false });
+        migrated.upsertEmployee({ id: "b", payType: "salary", annualSalaryCents: 52_000_00, payPeriodsPerYear: 26, workState: "NJ", residenceState: "PA", reciprocityCertificate: true });
+        expect(migrated.getEmployee("b").residenceState).to.equal("PA");
+      } finally {
+        migrated.close();
+      }
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
