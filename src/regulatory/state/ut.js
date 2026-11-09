@@ -14,10 +14,11 @@
 // encoded below from Schedules 1-8.
 //
 // Effective date: the Pub keys on the pay PERIOD start; payroll here keys
-// on the pay date, so a pay date on or after 2026-06-01 is treated as in
-// scope and anything earlier throws (the earlier 2026 schedules aren't
-// sourced here). A period that starts in May and pays in June should be
-// reviewed by hand.
+// on the pay date, so a pay date on or after 2026-06-01 uses these
+// schedules. Earlier 2026 pay dates use the schedules they replaced: Pub 14
+// Rev. 4/25 (effective June 1, 2025; 4.5%), as archived Jan. 14, 2026, all
+// six of its worked examples in the tests too. A period that starts in May
+// and pays in June should be reviewed by hand.
 //
 // Utah has no state withholding certificate: "Withhold amounts based on
 // your employee's federal W-4 form" - single or married per the federal
@@ -32,7 +33,7 @@
 // Wages: "Utah calculates withholding tax based on wages subject to
 // federal withholding tax" (IRC 3401(a)), so pre-tax 401(k) is excluded.
 
-const { formChecker, onFile, requirePayDateFrom, PERIOD_BY_COUNT } = require("./formUtil");
+const { formChecker, onFile, tableInForce, PERIOD_BY_COUNT } = require("./formUtil");
 
 // [baseAllowanceDollars, thresholdDollars] per schedule, from Pub 14.
 const SCHEDULES = Object.freeze({
@@ -46,9 +47,32 @@ const SCHEDULES = Object.freeze({
   daily: Object.freeze({ single: [2, 36], married: [4, 72] }),
 });
 
+// Pub 14 Rev. 4/25 (in force Jan. 1 - May 31, 2026).
+const SCHEDULES_REV_4_25 = Object.freeze({
+  weekly: Object.freeze({ single: [9, 175], married: [17, 350] }),
+  biweekly: Object.freeze({ single: [17, 350], married: [35, 701] }),
+  semimonthly: Object.freeze({ single: [19, 379], married: [38, 759] }),
+  monthly: Object.freeze({ single: [38, 759], married: [75, 1_518] }),
+  quarterly: Object.freeze({ single: [113, 2_277], married: [225, 4_553] }),
+  semiannual: Object.freeze({ single: [225, 4_554], married: [450, 9_107] }),
+  annual: Object.freeze({ single: [450, 9_107], married: [900, 18_213] }),
+  daily: Object.freeze({ single: [2, 35], married: [3, 70] }),
+});
+
 const TABLES = Object.freeze({
   2026: Object.freeze({
     effectiveFrom: "2026-06-01",
+    earlier: Object.freeze([
+      Object.freeze({
+        effectiveFrom: "2026-01-01",
+        rateBp: 450,
+        phaseOutBp: 130,
+        schedules: SCHEDULES_REV_4_25,
+        sources: Object.freeze([
+          "Utah State Tax Commission, Publication 14 Withholding Tax Guide (Rev. 4/25, effective June 1, 2025), as archived Jan. 14, 2026: https://web.archive.org/web/20260114210054/https://files.tax.utah.gov/tax/forms/pubs/pub-14.pdf",
+        ]),
+      }),
+    ]),
     rateBp: 445,
     phaseOutBp: 130,
     schedules: SCHEDULES,
@@ -67,8 +91,7 @@ function validateForm(form) {
 const dollars = (cents) => Math.round(cents / 100);
 
 function compute({ taxYear, wagesCents, payPeriodsPerYear, form, federalW4 = null, payDate }) {
-  const t = TABLES[taxYear];
-  requirePayDateFrom(payDate, t.effectiveFrom, "Utah");
+  const t = tableInForce(TABLES[taxYear], payDate, "Utah");
   validateForm(form);
   if (onFile(form)) return { stateCents: 0, formBasis: `utah-exempt-${form.exempt}`, lines: {} };
   const period = PERIOD_BY_COUNT[payPeriodsPerYear];

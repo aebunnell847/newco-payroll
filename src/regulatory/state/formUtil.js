@@ -49,6 +49,26 @@ function requirePayDateFrom(payDate, effectiveFrom, stateName) {
   }
 }
 
+/**
+ * The figures in force on a pay date, for a state whose figures changed
+ * during the year. yearTable is the year's current table (with its
+ * effectiveFrom); yearTable.earlier lists the tables it replaced that year,
+ * oldest first, each with its own effectiveFrom. A pay date before the
+ * first of them throws: those figures aren't sourced.
+ */
+function tableInForce(yearTable, payDate, stateName) {
+  const versions = [...(yearTable.earlier ?? []), yearTable];
+  if (typeof payDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(payDate)) {
+    throw new Error(`${stateName} withholding needs the pay date ("YYYY-MM-DD"): its figures changed on ${yearTable.effectiveFrom}`);
+  }
+  let inForce = null;
+  for (const v of versions) if (payDate >= v.effectiveFrom) inForce = v;
+  if (!inForce) {
+    throw new Error(`no sourced ${stateName} withholding for pay date ${payDate} (these figures apply from ${versions[0].effectiveFrom})`);
+  }
+  return inForce;
+}
+
 const PERIOD_BY_COUNT = Object.freeze({
   260: "daily",
   52: "weekly",
@@ -60,4 +80,4 @@ const PERIOD_BY_COUNT = Object.freeze({
   1: "annual",
 });
 
-module.exports = { formChecker, onFile, requirePayDateFrom, PERIOD_BY_COUNT };
+module.exports = { formChecker, onFile, requirePayDateFrom, tableInForce, PERIOD_BY_COUNT };

@@ -59,8 +59,7 @@ describe("Georgia (2026 Employer's Guide percentage method, from May 11, 2026)",
     expect(at(ga, 2_000_00, 26).stateCents).to.equal(Math.round((200_000 - 57_692) * 0.0499));
   });
 
-  it("throws for pay dates before May 11, 2026 (the 5.19% figures aren't sourced here)", () => {
-    expect(() => at(ga, 2_000_00, 26, null, { payDate: "2026-05-08" })).to.throw(/Georgia withholding for pay date 2026-05-08/);
+  it("needs a pay date (earlier 2026 figures: test/earlier2026.test.js)", () => {
     expect(() => at(ga, 2_000_00, 26, null, { payDate: null })).to.throw(/needs the pay date/);
   });
 });
@@ -83,8 +82,8 @@ describe("Idaho (EPB00744, revised 07-23-2026)", () => {
     expect(at(id, 1_000_00, 52, { withholdingStatus: "A", allowances: 3 }).stateCents).to.equal(37_00);
   });
 
-  it("throws for pay dates before the July 2026 revision", () => {
-    expect(() => at(id, 1_000_00, 52, null, { payDate: "2026-07-17" })).to.throw(/Idaho withholding for pay date/);
+  it("a pay date before 2026 has no 2026 figures", () => {
+    expect(() => at(id, 1_000_00, 52, null, { payDate: "2025-12-31" })).to.throw(/Idaho withholding for pay date 2025-12-31 \(these figures apply from 2026-01-01\)/);
   });
 });
 
@@ -145,10 +144,10 @@ describe("Indiana (Departmental Notice #1, effective Oct. 1, 2026)", () => {
     expect(Object.keys(r.localities)).to.deep.equal(["IN-49"]);
   });
 
-  it("Boone changed on Oct. 1: earlier pay dates throw for Boone only", () => {
+  it("Boone changed on Oct. 1, so Boone needs a pay date (earlier rate: test/earlier2026.test.js)", () => {
     const boone = { personalExemptions: 1, countyOfResidence: "06" };
-    expect(() => at(ind, 1_000_00, 52, boone, { payDate: "2026-09-25" })).to.throw(/Boone County/);
-    expect(at(ind, 1_000_00, 52, { personalExemptions: 1, countyOfResidence: "49" }, { payDate: "2026-09-25" }).stateCents).to.be.greaterThan(0);
+    expect(() => at(ind, 1_000_00, 52, boone, { payDate: null })).to.throw(/Boone County \(Indiana\) withholding needs the pay date/);
+    expect(at(ind, 1_000_00, 52, { personalExemptions: 1, countyOfResidence: "49" }, { payDate: null }).stateCents).to.be.greaterThan(0);
   });
 
   it("no WH-4: state tax with no exemptions and no county tax, flagged", () => {
@@ -218,8 +217,7 @@ describe("Utah (Pub 14, Rev. 4/26: all six worked examples)", () => {
     expect(at(ut, 400_00, 52).lines.status).to.equal("single");
   });
   it("Utah-only exclusions withhold nothing", () => expect(at(ut, 400_00, 52, { exempt: "militarySpouse" }).stateCents).to.equal(0));
-  it("throws for pay dates before June 1, 2026", () =>
-    expect(() => at(ut, 400_00, 52, null, { payDate: "2026-05-29" })).to.throw(/Utah withholding for pay date/));
+  it("needs a pay date", () => expect(() => at(ut, 400_00, 52, null, { payDate: null })).to.throw(/Utah withholding needs the pay date/));
 });
 
 describe("pay date reaches state rules in a stored payroll run", () => {
