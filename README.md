@@ -23,6 +23,8 @@ src/
   models/Employee.js      - minimal employee shape (pay-calc inputs only;
                             NOT a place to store real PII)
   payroll/payrollEngine.js - gross pay, tax withholding, 401(k) deferral math
+  regulatory/irsLimits.js  - IRS 401(k) limits by tax year, each figure
+                            cited to an IRS source (see below)
   payroll/payrollRun.js    - orchestrates a batch: consent check -> payroll
                             math -> record to the ledger
   chain/contracts.js       - the only file that talks to the blockchain
@@ -81,23 +83,42 @@ run payroll, then record a matching, a mismatched, or a late remittance
 as the custodian, and watch the reconciliation status update - all
 against real transactions on a real (local, test) chain.
 
-## What's a placeholder, and why
+## 401(k) limits: sourced, by tax year
 
-Two things in `payrollEngine.js` are explicitly marked as placeholders,
-not real figures:
+`src/regulatory/irsLimits.js` holds the IRS limits for 2025 and 2026,
+each copied from and cited to an IRS primary source (Notice 2025-67,
+IR-2025-111, Publications 560 and 17). `test/irsLimits.test.js` pins every
+figure, so a typo fails CI.
 
-1. **Tax withholding** is a flat 12% federal / 5% state rate. Real
-   withholding depends on filing status, W-4 elections, and current IRS
-   tables - this is exactly the kind of fact that should come from the
-   regulatory RAG system described in
-   `research/regulatory-rag-architecture.md` (in `newco-docs`), not a
-   number typed into this file.
-2. **The annual 401(k) elective deferral limit** is hardcoded to a
-   placeholder value. The real IRS limit changes most years and should be
-   pulled from the same RAG system, not hardcoded here.
+- **Every pay period needs a `taxYear`** (the year the pay date falls
+  in). There is no default year, and a year with no sourced figures
+  throws. That employee fails; the rest of the batch carries on.
+- **Catch-up is off unless the plan offers it** (`plan: { allowsCatchUp:
+  true }` on `runPayrollBatch`). Then employees 50+ get the standard
+  catch-up and those turning 60-63 in the year get the higher SECURE 2.0
+  amount, judged from `employee.birthYear` (a year, not a birth date).
+  Off by default because deferring too little is fixed next period, while
+  an excess deferral needs a corrective distribution.
+- **Roth catch-up (IRC 414(v)(7)) is reported, not applied.** From 2026,
+  catch-up dollars must be Roth if last year's FICA wages from this
+  employer exceeded the threshold ($150,000 for 2026). Each deferral
+  result says `rothCatchUpRequired: true | false | null`; `null` means
+  there were catch-up dollars but no `priorYearFicaWagesCents` on file,
+  and a person has to resolve it. The engine doesn't split pre-tax and
+  Roth yet.
+- **Adding a year:** copy the figures from that year's IRS cost-of-living
+  notice into the table with citations, and pin them in the test.
 
-Both are called out loudly in code comments so nobody mistakes this
-scaffold for something ready to run real payroll.
+## What's still a placeholder
+
+**Tax withholding** is a flat 12% federal / 5% state rate. Real
+withholding depends on filing status, W-4 elections, and IRS Publication
+15-T tables - the kind of fact that should come from the regulatory RAG
+system described in `research/regulatory-rag-architecture.md` (in
+`newco-docs`), not a number typed into this file. It's called out loudly
+in the code so nobody mistakes this for something ready to run real
+payroll. Withholding is also still computed on gross pay, before pre-tax
+deferrals.
 
 ## The one guardrail that matters
 
@@ -162,5 +183,5 @@ This is a first slice, not the whole system. Not yet built: a real HRIS
 data layer/database, deployment to any real public testnet (see
 `newco-contracts/docs/DEPLOYING_TO_TESTNET.md` for exactly what that
 needs), a production frontend (the demo above is a dev proof, not a
-product UI), and the wiring to the regulatory RAG system that the two
-placeholder values above should eventually come from.
+product UI), real tax withholding (see above), and the regulatory RAG
+system the sourced limits table should eventually be generated from.

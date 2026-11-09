@@ -18,6 +18,12 @@
 //   payPeriodsPerYear   - required if payType === "salary" (e.g. 26 = biweekly)
 //   hourlyRateCents     - required if payType === "hourly"
 //   deferralElectionPct - the employee's elected 401(k) deferral, 0-100
+//   birthYear           - optional; decides catch-up eligibility (the IRS
+//                          test is age attained by year end). A year, not a
+//                          full date of birth, and it never goes on-chain.
+//   priorYearFicaWagesCents - optional; prior-year FICA wages from this
+//                          employer, which decide whether catch-up
+//                          contributions must be Roth (IRC 414(v)(7))
 
 function createEmployee({
   id,
@@ -26,6 +32,8 @@ function createEmployee({
   payPeriodsPerYear,
   hourlyRateCents,
   deferralElectionPct = 0,
+  birthYear,
+  priorYearFicaWagesCents,
 }) {
   if (!id) throw new Error("employee requires an id");
   if (payType !== "salary" && payType !== "hourly") {
@@ -39,6 +47,8 @@ function createEmployee({
     payPeriodsPerYear,
     hourlyRateCents,
     deferralElectionPct,
+    birthYear,
+    priorYearFicaWagesCents,
   };
 }
 
