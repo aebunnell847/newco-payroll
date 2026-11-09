@@ -62,5 +62,6 @@ component implements).
   as `regulatory/irsLimits.js`.
 - Generate `regulatory/irsLimits.js` entries from the regulatory RAG
   system once it exists (same shape, same citations, same tests).
-- Add a minimal data layer for employee/pay-period records (currently
-  these are passed in as plain objects by the caller).
+- A wallet-gated store for employee PII (Tenet 1). `data/payrollStore.js`
+  holds pay-calc inputs and results only and must stay PII-free; a test
+  checks its columns.

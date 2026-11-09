@@ -31,6 +31,10 @@ const { toLedgerEmployeeId, parseEmployeeIdKey } = require("../chain/ledgerIds")
  *                             chainClient is set.
  *   plan                   - { allowsCatchUp?: boolean } plan features;
  *                             catch-up is off unless the plan says so.
+ *   hoursFor               - optional (employee) => { regularHours,
+ *                             overtimeHours }. When given, each employee's
+ *                             own hours replace the pay period's shared
+ *                             ones (see data/payrollStore.js timesheets).
  *
  * Returns an array of { employee, result, ledgerEntry?, skipped?,
  * skipReason?, error? } so the caller can see exactly what happened for
@@ -50,6 +54,7 @@ async function runPayrollBatch(employees, payPeriod, options = {}) {
     yearToDateDeferralFor = () => 0,
     employeeIdKey = null,
     plan = {},
+    hoursFor = null,
   } = options;
 
   // Validate the key once, before touching anyone: a missing or weak key
@@ -81,7 +86,8 @@ async function runPayrollBatch(employees, payPeriod, options = {}) {
       }
 
       const yearToDateDeferralCents = yearToDateDeferralFor(employee);
-      const result = runPayrollForEmployee(employee, payPeriod, yearToDateDeferralCents, plan);
+      const employeePeriod = hoursFor ? { ...payPeriod, ...hoursFor(employee) } : payPeriod;
+      const result = runPayrollForEmployee(employee, employeePeriod, yearToDateDeferralCents, plan);
 
       let ledgerEntry;
       if (chainClient) {
