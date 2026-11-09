@@ -361,6 +361,7 @@ Local taxes withheld today:
 | Maryland counties | (in `stateCents`) | Combined with state tax, by MW507 county | Comptroller percentage-method tables |
 | Oregon | `OR_STT` | Statewide transit tax, 0.1% of Oregon wages | Oregon DOR |
 | Denver | `DENVER_OPT` | $5.75 once a month at $500 of Denver pay; employer sets `denverWorker` | Denver Tax Guide Topic 61 |
+| Ohio school districts | `OH_SD_<number>` | 214 districts (generated): (wages - $650/yr per IT 4 exemption) x rate; earned-income-only districts skip the exemption | 2026 SDIT list + SDIT computer formula |
 
 Denver's tax is monthly, so it needs month-to-date pay: the stored payroll
 run supplies it from the database (`payrollStore.monthToDate`), and a run
@@ -376,7 +377,8 @@ Not modeled yet:
 - other states;
 - other local income taxes, including PA's local earned income tax,
   Michigan's city income taxes (Detroit and others), Kentucky's
-  occupational license taxes, Ohio school district and municipal taxes,
+  occupational license taxes, Ohio municipal taxes (Michigan's city
+  guidance, form 5469, refuses automated downloads, so it isn't sourced yet),
   Alabama occupational taxes and Wilmington's earned income tax (the
   city's site refuses automated requests, so it isn't sourced yet);
 - New York pay frequencies other than daily, weekly, biweekly,
