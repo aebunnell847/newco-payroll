@@ -368,6 +368,20 @@ run supplies it from the database (`payrollStore.monthToDate`), and a run
 without it refuses a Denver worker rather than guess. Aurora repealed its
 occupational privilege tax effective January 1, 2025.
 
+**Reciprocity.** Fifteen states have reciprocity agreements
+(`src/regulatory/state/reciprocity.js`, each cited to the work state's own
+publication): a resident of a reciprocal state who files the work state's
+nonresidence certificate (NJ-165, REV-419, WH-47, W-220, ...) owes the work
+state no income tax, and the employer withholds the home state's tax
+instead. Employees carry `residenceState`, `residenceStateW4` (the home
+state's certificate) and `reciprocityCertificate`; the result's
+`state` / the stored `state_code` say which state was withheld for.
+Work-state local taxes (an Indiana county of principal employment) still
+apply. A certificate no agreement covers is refused. Agreement conditions
+(Virginia's daily commute, Maryland's 183-day abode rule, ...) are recorded
+as notes; the certificate on file is the employer's evidence. Database
+schema is version 5 (a version 4 file is migrated in place).
+
 An employee with **no work state**, or one in a state or year that isn't
 listed, fails for review, never a guessed rate. Washington is listed only
 through 2026, because it has enacted a tax on income over $1M starting in
@@ -383,9 +397,10 @@ Not modeled yet:
   city's site refuses automated requests, so it isn't sourced yet);
 - New York pay frequencies other than daily, weekly, biweekly,
   semimonthly, monthly and annual;
-- reciprocity agreements and resident-state credits (for example, a
-  Pennsylvania resident working in New Jersey who files NJ-165 is
-  withheld on by neither state's rules here yet).
+- resident-state credits where there is NO reciprocity agreement (an
+  employee living in one state and working in another owes both; only the
+  work state is withheld), and Oregon residents working outside Oregon
+  (statewide transit tax).
 
 ## Not modeled yet
 - supplemental-wage (bonus) flat rates;

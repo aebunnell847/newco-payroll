@@ -14,7 +14,8 @@
 const { annualDeferralCapCents, rothCatchUpRequired } = require("../regulatory/irsLimits");
 const { computeFederalWithholdingCents } = require("../regulatory/federalWithholding");
 const { computeFicaCents } = require("../regulatory/fica");
-const { computeStateWithholdingCents } = require("../regulatory/state");
+const { computeStateWithholdingCents, SUPPORTED_STATES } = require("../regulatory/state");
+const { reciprocityFor } = require("../regulatory/state/reciprocity");
 
 /**
  * Every rate and limit used here is sourced, by tax year, in
@@ -94,6 +95,9 @@ function computeTaxWithholdingCents({
   stateW4 = null,
   payDate = null,
   monthToDate = null,
+  residenceState = null,
+  residenceStateW4 = null,
+  reciprocityCertificate = false,
 }) {
   const federalTaxableWagesCents = grossPayCents - preTaxDeductionsCents;
   const federal = computeFederalWithholdingCents({
@@ -103,20 +107,47 @@ function computeTaxWithholdingCents({
     w4,
   });
   const fica = computeFicaCents({ taxYear, ficaWagesCents: grossPayCents, yearToDateFicaWagesCents });
-  const state = computeStateWithholdingCents({
-    state: workState,
+  const stateArgs = {
     taxYear,
     grossPayCents,
     federalTaxableWagesCents,
     payPeriodsPerYear,
-    form: stateW4,
     federalW4: w4,
     payDate,
     federalWithholdingCents: federal.federalCents,
     ficaCents: fica.totalCents,
     yearToDateFicaWagesCents,
     monthToDate,
-  });
+  };
+  let state = computeStateWithholdingCents({ ...stateArgs, state: workState, form: stateW4 });
+
+  // Reciprocity: with the work state's nonresidence certificate on file, a
+  // resident of a reciprocal state owes the work state no income tax; the
+  // employer withholds the home state's tax instead. Work-state local taxes
+  // (an Indiana county of principal employment, ...) still apply.
+  let reciprocity = null;
+  const agreement = reciprocityCertificate ? reciprocityFor(workState, residenceState) : null;
+  if (reciprocityCertificate && !agreement) {
+    throw new Error(
+      `no reciprocity agreement covers a ${residenceState} resident working in ${workState}; clear reciprocityCertificate`
+    );
+  }
+  if (agreement) {
+    const homeSupported = SUPPORTED_STATES.includes(residenceState);
+    const home = homeSupported
+      ? computeStateWithholdingCents({ ...stateArgs, state: residenceState, form: residenceStateW4 })
+      : null;
+    const localities = { ...state.localities, ...(home ? home.localities : {}) };
+    reciprocity = { workState, residenceState, certificate: agreement.certificate, homeStateWithheld: homeSupported };
+    state = {
+      state: residenceState,
+      stateCents: home ? home.stateCents : 0,
+      wagesCents: home ? home.wagesCents : 0,
+      formBasis: home ? `reciprocity-${home.formBasis}` : "reciprocity-home-state-not-supported",
+      localities,
+      localCents: Object.values(localities).reduce((a, b) => a + b, 0),
+    };
+  }
 
   return {
     federalCents: federal.federalCents,
@@ -133,6 +164,7 @@ function computeTaxWithholdingCents({
     stateFormBasis: state.formBasis,
     localities: state.localities,
     localCents: state.localCents,
+    reciprocity,
     totalCents: federal.federalCents + fica.totalCents + state.stateCents + state.localCents,
   };
 }
@@ -255,6 +287,9 @@ function runPayrollForEmployee(
       stateW4: employee.stateW4 ?? null,
       payDate: payPeriod.payDate ?? null,
       monthToDate,
+      residenceState: employee.residenceState ?? null,
+      residenceStateW4: employee.residenceStateW4 ?? null,
+      reciprocityCertificate: Boolean(employee.reciprocityCertificate),
     });
   const netFor = (deferral, withholding) => grossPayCents - withholding.totalCents - deferral.actualCents;
 

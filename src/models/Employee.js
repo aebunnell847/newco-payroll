@@ -34,6 +34,12 @@
 //                          the state withholding method (regulatory/state/)
 //   stateW4             - that state's withholding certificate (DE 4,
 //                          IL-W-4, ...), or null for none on file
+//   residenceState      - two-letter home state, if different from workState
+//   residenceStateW4    - the home state's withholding certificate, used when
+//                          a reciprocity agreement moves withholding there
+//   reciprocityCertificate - true when the employee filed the work state's
+//                          nonresidence certificate (NJ-165, REV-419, ...;
+//                          see regulatory/state/reciprocity.js)
 
 function createEmployee({
   id,
@@ -47,6 +53,9 @@ function createEmployee({
   w4 = null,
   workState,
   stateW4 = null,
+  residenceState = null,
+  residenceStateW4 = null,
+  reciprocityCertificate = false,
 }) {
   if (!id) throw new Error("employee requires an id");
   if (payType !== "salary" && payType !== "hourly") {
@@ -65,6 +74,9 @@ function createEmployee({
     w4,
     workState,
     stateW4,
+    residenceState,
+    residenceStateW4,
+    reciprocityCertificate,
   };
 }
 

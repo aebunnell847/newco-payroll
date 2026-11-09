@@ -24,10 +24,11 @@
 const { DatabaseSync } = require("node:sqlite");
 const { validateW4 } = require("../regulatory/federalWithholding");
 const { validateStateForm } = require("../regulatory/state");
+const { reciprocityFor } = require("../regulatory/state/reciprocity");
 
 // Bump when the schema changes. An existing file at an older version is
 // refused rather than silently used with missing columns.
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 const SCHEMA = `
 PRAGMA foreign_keys = ON;
@@ -47,6 +48,10 @@ CREATE TABLE IF NOT EXISTS employees (
   -- as JSON; NULL certificate = none on file.
   work_state            TEXT CHECK (work_state IS NULL OR (length(work_state) = 2 AND work_state = upper(work_state))),
   state_w4_json         TEXT,
+  -- Home state and its certificate, for reciprocity (regulatory/state/reciprocity.js).
+  residence_state       TEXT CHECK (residence_state IS NULL OR (length(residence_state) = 2 AND residence_state = upper(residence_state))),
+  residence_state_w4_json TEXT,
+  reciprocity_certificate INTEGER NOT NULL DEFAULT 0 CHECK (reciprocity_certificate IN (0, 1)),
   consent_attestation_id TEXT,
   status                TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'terminated')),
   CHECK (pay_type <> 'salary' OR (annual_salary_cents IS NOT NULL AND pay_periods_per_year IS NOT NULL)),
@@ -95,6 +100,8 @@ CREATE TABLE IF NOT EXISTS payroll_results (
   medicare_cents          INTEGER,
   additional_medicare_cents INTEGER,
   state_withholding_cents INTEGER,
+  -- The state the state withholding is for: the work state, or the home state under reciprocity.
+  state_code              TEXT,
   -- City/local taxes by locality, e.g. {"NYC": 611}, kept apart for the W-2.
   local_withholding_json  TEXT,
   deferral_requested_cents INTEGER,
@@ -142,6 +149,9 @@ function rowToEmployee(row) {
     w4: row.w4_json ? JSON.parse(row.w4_json) : null,
     workState: row.work_state ?? undefined,
     stateW4: row.state_w4_json ? JSON.parse(row.state_w4_json) : null,
+    residenceState: row.residence_state ?? undefined,
+    residenceStateW4: row.residence_state_w4_json ? JSON.parse(row.residence_state_w4_json) : null,
+    reciprocityCertificate: row.reciprocity_certificate === 1,
     consentAttestationId: row.consent_attestation_id ?? null,
     status: row.status,
   };
@@ -170,6 +180,7 @@ function rowToResult(row) {
     additionalMedicareCents: row.additional_medicare_cents,
     localWithholding: row.local_withholding_json ? JSON.parse(row.local_withholding_json) : null,
     stateWithholdingCents: row.state_withholding_cents,
+    stateCode: row.state_code ?? null,
     deferralRequestedCents: row.deferral_requested_cents,
     deferralCents: row.deferral_cents,
     catchUpPortionCents: row.catch_up_portion_cents,
@@ -192,7 +203,16 @@ function openPayrollStore(path = ":memory:") {
   const db = new DatabaseSync(path);
   const existingVersion = db.prepare("PRAGMA user_version").get().user_version;
   const hasTables = db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table'").get().n > 0;
-  if (hasTables && existingVersion !== SCHEMA_VERSION) {
+  if (hasTables && existingVersion === 4) {
+    // 4 -> 5: reciprocity fields on employees, the withholding state on results.
+    db.exec(`
+      ALTER TABLE employees ADD COLUMN residence_state TEXT CHECK (residence_state IS NULL OR (length(residence_state) = 2 AND residence_state = upper(residence_state)));
+      ALTER TABLE employees ADD COLUMN residence_state_w4_json TEXT;
+      ALTER TABLE employees ADD COLUMN reciprocity_certificate INTEGER NOT NULL DEFAULT 0 CHECK (reciprocity_certificate IN (0, 1));
+      ALTER TABLE payroll_results ADD COLUMN state_code TEXT;
+      PRAGMA user_version = 5;
+    `);
+  } else if (hasTables && existingVersion !== SCHEMA_VERSION) {
     db.close();
     throw new Error(
       `payroll database is at schema version ${existingVersion}, this code needs ${SCHEMA_VERSION}; migrate it first`
@@ -242,6 +262,9 @@ function openPayrollStore(path = ":memory:") {
         w4 = null,
         workState = null,
         stateW4 = null,
+        residenceState = null,
+        residenceStateW4 = null,
+        reciprocityCertificate = false,
         consentAttestationId = null,
         status = "active",
       } = employee;
@@ -252,11 +275,23 @@ function openPayrollStore(path = ":memory:") {
       validateW4(w4);
       if (workState !== null) validateStateForm(workState, stateW4);
       else if (stateW4 !== null) throw new Error("stateW4 given without a workState");
+      if (residenceState !== null && !/^[A-Z]{2}$/.test(residenceState)) {
+        throw new Error("residenceState must be a two-letter state code");
+      }
+      if (residenceStateW4 !== null) {
+        if (residenceState === null) throw new Error("residenceStateW4 given without a residenceState");
+        validateStateForm(residenceState, residenceStateW4);
+      }
+      if (typeof reciprocityCertificate !== "boolean") throw new Error("reciprocityCertificate must be true or false");
+      if (reciprocityCertificate && !reciprocityFor(workState, residenceState)) {
+        throw new Error(`no reciprocity agreement covers a ${residenceState} resident working in ${workState}`);
+      }
       db.prepare(
         `INSERT INTO employees (id, pay_type, annual_salary_cents, pay_periods_per_year, hourly_rate_cents,
                                 deferral_election_pct, birth_year, w4_json, work_state, state_w4_json,
+                                residence_state, residence_state_w4_json, reciprocity_certificate,
                                 consent_attestation_id, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            pay_type = excluded.pay_type,
            annual_salary_cents = excluded.annual_salary_cents,
@@ -267,6 +302,9 @@ function openPayrollStore(path = ":memory:") {
            w4_json = excluded.w4_json,
            work_state = excluded.work_state,
            state_w4_json = excluded.state_w4_json,
+           residence_state = excluded.residence_state,
+           residence_state_w4_json = excluded.residence_state_w4_json,
+           reciprocity_certificate = excluded.reciprocity_certificate,
            consent_attestation_id = excluded.consent_attestation_id,
            status = excluded.status`
       ).run(
@@ -280,6 +318,9 @@ function openPayrollStore(path = ":memory:") {
         w4 === null ? null : JSON.stringify(w4),
         workState,
         stateW4 === null ? null : JSON.stringify(stateW4),
+        residenceState,
+        residenceStateW4 === null ? null : JSON.stringify(residenceStateW4),
+        reciprocityCertificate ? 1 : 0,
         consentAttestationId,
         status
       );
@@ -447,9 +488,9 @@ function openPayrollStore(path = ":memory:") {
         `INSERT INTO payroll_results (
            employee_id, pay_period_id, tax_year, outcome, gross_pay_cents, federal_withholding_cents,
            social_security_cents, medicare_cents, additional_medicare_cents,
-           state_withholding_cents, local_withholding_json, deferral_requested_cents, deferral_cents, catch_up_portion_cents,
+           state_withholding_cents, state_code, local_withholding_json, deferral_requested_cents, deferral_cents, catch_up_portion_cents,
            roth_catch_up_required, net_pay_cents, ledger_employee_id, ledger_pay_period_id, withheld_at, reason)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(employee_id, pay_period_id) DO UPDATE SET
            outcome = excluded.outcome, gross_pay_cents = excluded.gross_pay_cents,
            federal_withholding_cents = excluded.federal_withholding_cents,
@@ -457,6 +498,7 @@ function openPayrollStore(path = ":memory:") {
            medicare_cents = excluded.medicare_cents,
            additional_medicare_cents = excluded.additional_medicare_cents,
            state_withholding_cents = excluded.state_withholding_cents,
+           state_code = excluded.state_code,
            local_withholding_json = excluded.local_withholding_json,
            deferral_requested_cents = excluded.deferral_requested_cents,
            deferral_cents = excluded.deferral_cents, catch_up_portion_cents = excluded.catch_up_portion_cents,
@@ -484,6 +526,7 @@ function openPayrollStore(path = ":memory:") {
             r?.taxWithholding.medicareCents ?? null,
             r?.taxWithholding.additionalMedicareCents ?? null,
             r?.taxWithholding.stateCents ?? null,
+            r?.taxWithholding.state ?? null,
             r ? JSON.stringify(r.taxWithholding.localities ?? {}) : null,
             d?.requestedCents ?? null,
             d?.actualCents ?? null,
