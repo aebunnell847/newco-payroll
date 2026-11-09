@@ -25,6 +25,11 @@ const { toLedgerEmployeeId, parseEmployeeIdKey } = require("../chain/ledgerIds")
  *                             entirely rather than defaulting to "proceed
  *                             anyway" - consent must be explicit.
  *   yearToDateDeferralFor  - (employee) => cents already deferred this year
+ *   yearToDateFicaWagesFor - (employee) => gross already paid this calendar
+ *                             year (Social Security wage base, Additional
+ *                             Medicare threshold). Defaults to 0, i.e. the
+ *                             first paycheck of the year; the data layer
+ *                             supplies the real figure.
  *   employeeIdKey          - hex secret (NEWCO_EMPLOYEE_ID_KEY) used to
  *                             derive each employee's on-chain ID; see
  *                             chain/ledgerIds.js. Required whenever
@@ -52,6 +57,7 @@ async function runPayrollBatch(employees, payPeriod, options = {}) {
     chainClient = null,
     consentAttestationFor = () => null,
     yearToDateDeferralFor = () => 0,
+    yearToDateFicaWagesFor = () => 0,
     employeeIdKey = null,
     plan = {},
     hoursFor = null,
@@ -87,7 +93,13 @@ async function runPayrollBatch(employees, payPeriod, options = {}) {
 
       const yearToDateDeferralCents = yearToDateDeferralFor(employee);
       const employeePeriod = hoursFor ? { ...payPeriod, ...hoursFor(employee) } : payPeriod;
-      const result = runPayrollForEmployee(employee, employeePeriod, yearToDateDeferralCents, plan);
+      const result = runPayrollForEmployee(
+        employee,
+        employeePeriod,
+        yearToDateDeferralCents,
+        plan,
+        yearToDateFicaWagesFor(employee)
+      );
 
       let ledgerEntry;
       if (chainClient) {

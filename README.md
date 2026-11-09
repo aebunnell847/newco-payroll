@@ -25,6 +25,9 @@ src/
   payroll/payrollEngine.js - gross pay, tax withholding, 401(k) deferral math
   regulatory/irsLimits.js  - IRS 401(k) limits by tax year, each figure
                             cited to an IRS source (see below)
+  regulatory/federalWithholding.js - federal income tax withholding, IRS
+                            Pub 15-T Worksheet 1A + percentage tables
+  regulatory/fica.js       - Social Security and Medicare (IRS Pub 15)
   payroll/payrollRun.js    - orchestrates a batch: consent check -> payroll
                             math -> record to the ledger
   payroll/storedPayrollRun.js - runs a pay period from the data layer and
@@ -160,16 +163,68 @@ process dies between the two, the retry's ledger write is refused
 ("already recorded"), and that employee shows as an error for a person to
 resolve. They are never paid twice.
 
+## Federal withholding and FICA: sourced, by tax year
+
+**Federal income tax** (`src/regulatory/federalWithholding.js`) follows
+IRS Publication 15-T's method for automated payroll systems: Worksheet 1A
+plus the Annual Percentage Method tables, for 2025 and 2026.
+
+- **Where the tables come from.** A script generated them from the IRS
+  documents themselves (the irs.gov HTML edition for 2026, the 2025 PDF);
+  nothing was typed by hand.
+- **How the tests check them.**
+  - Every bracket's base amount has to follow from the bracket before it.
+  - Results have to match the IRS's separately published 2026 weekly
+    wage-bracket table to the dollar, at three wages across all six columns.
+- **Every Form W-4 case is handled.**
+  - 2020-or-later forms: filing status, the Step 2 checkbox, Step 3
+    credits, and Step 4(a)/(b)/(c).
+  - 2019-or-earlier forms with allowances.
+  - Exempt.
+  - No W-4 on file: the IRS default of Single with no adjustments, and the
+    result says so (`w4Basis: "none-on-file"`).
+- **Income-tax wages are gross minus pre-tax deferrals.** Catch-up dollars
+  that must be Roth (`rothCatchUpRequired: true`) stay taxable.
+- **The worksheet lines are returned** (`federalWorksheet`), so anyone can
+  check the arithmetic.
+
+**FICA** (`src/regulatory/fica.js`, IRS Publication 15):
+- 6.2% Social Security up to the year's wage base ($184,500 in 2026,
+  $176,100 in 2025);
+- 1.45% Medicare;
+- 0.9% Additional Medicare on wages over $200,000 in the year.
+
+FICA is on gross pay, because 401(k) deferrals don't reduce FICA wages.
+The wage base and threshold need year-to-date wages, which the data layer
+sums from saved results.
+
+**Taxes come first, then the 401(k).** If an election would leave negative
+net pay, the deferral is cut back to what's left (`cappedByNetPay`). If
+taxes alone would exceed gross pay (say, a large W-4 extra-withholding
+amount), that employee fails for review instead of getting a negative
+check.
+
+**Every employee needs `payPeriodsPerYear`**, hourly employees included,
+because withholding annualizes each paycheck.
+
+A year with no sourced tables throws, same as the 401(k) limits.
+
 ## What's still a placeholder
 
-**Tax withholding** is a flat 12% federal / 5% state rate. Real
-withholding depends on filing status, W-4 elections, and IRS Publication
-15-T tables - the kind of fact that should come from the regulatory RAG
-system described in `research/regulatory-rag-architecture.md` (in
-`newco-docs`), not a number typed into this file. It's called out loudly
-in the code so nobody mistakes this for something ready to run real
-payroll. Withholding is also still computed on gross pay, before pre-tax
-deferrals.
+**State withholding** is a flat 5% of gross. Each state has its own method
+and tables, which belong in a sourced table like the federal ones (or the
+regulatory RAG system described in `research/regulatory-rag-architecture.md`
+in `newco-docs`), not a number typed in. Every result says
+`stateIsPlaceholder: true`.
+
+Also not modeled yet:
+- supplemental-wage (bonus) flat rates;
+- Section 125 cafeteria-plan deductions, which would reduce both income-tax
+  and FICA wages;
+- local income taxes;
+- nonresident-alien withholding adjustments.
+
+The browser demo still uses flat rates. It's a chain demo, not the engine.
 
 ## The one guardrail that matters
 
@@ -235,5 +290,5 @@ wallet-gated store for employee PII (the payroll records above hold none),
 deployment to any real public testnet (see
 `newco-contracts/docs/DEPLOYING_TO_TESTNET.md` for exactly what that
 needs), a production frontend (the demo above is a dev proof, not a
-product UI), real tax withholding (see above), and the regulatory RAG
+product UI), state withholding (see above), and the regulatory RAG
 system the sourced limits table should eventually be generated from.

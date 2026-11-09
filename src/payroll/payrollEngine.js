@@ -12,21 +12,21 @@
 // discrepancy" bug class entirely.
 
 const { annualDeferralCapCents, rothCatchUpRequired } = require("../regulatory/irsLimits");
+const { computeFederalWithholdingCents } = require("../regulatory/federalWithholding");
+const { computeFicaCents } = require("../regulatory/fica");
 
 /**
- * IMPORTANT: the tax withholding rates below are PLACEHOLDERS, not real
- * withholding. Federal/state/local withholding must come from the IRS
- * (Publication 15-T) and state sources via the regulatory RAG system
- * described in research/regulatory-rag-architecture.md, not a hardcoded
- * flat rate. Hardcoding them and shipping it would violate NewCo's "ground
- * everything in regulator source text" design goal.
+ * Sourced, by tax year (src/regulatory/): 401(k) limits (irsLimits.js),
+ * federal income tax withholding per IRS Publication 15-T
+ * (federalWithholding.js), and Social Security / Medicare (fica.js).
  *
- * The 401(k) deferral limits are no longer placeholders: they come from
- * src/regulatory/irsLimits.js, a table copied from IRS notices with
- * citations, keyed by tax year.
+ * IMPORTANT: STATE withholding is still a PLACEHOLDER flat rate, not a
+ * real state calculation. Each state has its own method and tables; they
+ * belong in a sourced table like the federal ones (or the regulatory RAG
+ * system described in research/regulatory-rag-architecture.md), not a
+ * number typed here. Every result says stateIsPlaceholder: true.
  */
 const PLACEHOLDER_CONFIG = {
-  flatFederalWithholdingRate: 0.12, // NOT a real bracket calculation
   flatStateWithholdingRate: 0.05, // NOT a real state calculation
 };
 
@@ -63,17 +63,59 @@ function computeGrossPayCents(employee, payPeriod) {
 }
 
 /**
+ * The part of a deferral that is pre-tax, i.e. excluded from federal
+ * income-tax wages. All deferrals are treated as traditional (pre-tax)
+ * except catch-up dollars that IRC 414(v)(7) requires to be Roth
+ * (rothCatchUpRequired === true). When that answer is unknown (null) they
+ * stay pre-tax and the null is surfaced for a person to resolve.
+ */
+function preTaxDeferralCents(deferral) {
+  return deferral.actualCents - (deferral.rothCatchUpRequired === true ? deferral.catchUpPortionCents : 0);
+}
+
+/**
  * computeTaxWithholdingCents
  * ---------------------------
- * A deliberately simple stand-in. Real withholding depends on filing
- * status, W-4 elections, state/local jurisdiction, and the current IRS
- * withholding tables - exactly the kind of thing meant to be retrieved from
- * the regulatory RAG system rather than computed from a flat rate here.
+ *   federal - IRS Publication 15-T percentage method on income-tax wages
+ *             (gross minus pre-tax deferrals) and the employee's Form W-4
+ *   FICA    - Social Security (to the wage base) + Medicare + Additional
+ *             Medicare, on gross pay (deferrals don't reduce FICA wages)
+ *   state   - PLACEHOLDER flat rate on gross (see PLACEHOLDER_CONFIG)
+ *
+ * w4: the employee's Form W-4 (see federalWithholding.js), or null if none
+ * is on file - then the IRS default (Single, no adjustments) applies.
  */
-function computeTaxWithholdingCents(grossPayCents) {
-  const federal = Math.round(grossPayCents * PLACEHOLDER_CONFIG.flatFederalWithholdingRate);
-  const state = Math.round(grossPayCents * PLACEHOLDER_CONFIG.flatStateWithholdingRate);
-  return { federalCents: federal, stateCents: state, totalCents: federal + state };
+function computeTaxWithholdingCents({
+  taxYear,
+  grossPayCents,
+  preTaxDeductionsCents = 0,
+  payPeriodsPerYear,
+  w4 = null,
+  yearToDateFicaWagesCents = 0,
+}) {
+  const federalTaxableWagesCents = grossPayCents - preTaxDeductionsCents;
+  const federal = computeFederalWithholdingCents({
+    taxYear,
+    taxableWagesCents: federalTaxableWagesCents,
+    payPeriodsPerYear,
+    w4,
+  });
+  const fica = computeFicaCents({ taxYear, ficaWagesCents: grossPayCents, yearToDateFicaWagesCents });
+  const stateCents = Math.round(grossPayCents * PLACEHOLDER_CONFIG.flatStateWithholdingRate);
+
+  return {
+    federalCents: federal.federalCents,
+    federalTaxableWagesCents,
+    federalWorksheet: federal.lines,
+    w4Basis: federal.w4Basis,
+    socialSecurityCents: fica.socialSecurityCents,
+    medicareCents: fica.medicareCents,
+    additionalMedicareCents: fica.additionalMedicareCents,
+    ficaCents: fica.totalCents,
+    stateCents,
+    stateIsPlaceholder: true,
+    totalCents: federal.federalCents + fica.totalCents + stateCents,
+  };
 }
 
 /**
@@ -93,13 +135,15 @@ function computeTaxWithholdingCents(grossPayCents) {
  *                        Defaults to false: deferring too little can be
  *                        fixed next period, an excess deferral needs a
  *                        corrective distribution.
+ *   maxCents           - optional extra cap (runPayrollForEmployee uses it
+ *                        so a deferral never pushes net pay below zero).
  *
  * Catch-up eligibility uses employee.birthYear. Whether catch-up dollars
- * must be Roth (IRC 414(v)(7)) uses employee.priorYearFicaWagesCents and
- * is reported, not acted on: this engine doesn't split pre-tax and Roth.
+ * must be Roth (IRC 414(v)(7)) uses employee.priorYearFicaWagesCents; when
+ * true, those dollars are taxed as Roth (see preTaxDeferralCents).
  */
 function compute401kDeferralCents(grossPayCents, employee, yearToDateDeferralCents = 0, options = {}) {
-  const { taxYear, planAllowsCatchUp = false } = options;
+  const { taxYear, planAllowsCatchUp = false, maxCents = Infinity } = options;
   if (taxYear === undefined || taxYear === null) {
     throw new Error("taxYear is required to look up the IRS deferral limit");
   }
@@ -118,8 +162,9 @@ function compute401kDeferralCents(grossPayCents, employee, yearToDateDeferralCen
   const requestedCents = Math.round(grossPayCents * (electionPct / 100));
   const remainingRoomCents = Math.max(0, cap.totalCents - yearToDateDeferralCents);
 
-  const actualCents = Math.min(requestedCents, remainingRoomCents);
-  const cappedByAnnualLimit = actualCents < requestedCents;
+  const actualCents = Math.min(requestedCents, remainingRoomCents, maxCents);
+  const cappedByAnnualLimit = remainingRoomCents < requestedCents;
+  const cappedByNetPay = maxCents < Math.min(requestedCents, remainingRoomCents);
 
   // The part of this period's deferral that sits above the base 402(g)
   // limit, i.e. counts as catch-up.
@@ -131,6 +176,7 @@ function compute401kDeferralCents(grossPayCents, employee, yearToDateDeferralCen
     requestedCents,
     actualCents,
     cappedByAnnualLimit,
+    cappedByNetPay,
     taxYear,
     annualLimitCents: cap.totalCents,
     catchUpBand: cap.catchUpBand,
@@ -152,19 +198,64 @@ function compute401kDeferralCents(grossPayCents, employee, yearToDateDeferralCen
  * talk to the blockchain itself - see src/chain/contracts.js for that - so
  * it stays trivially unit-testable.
  *
- * payPeriod.taxYear is required (see compute401kDeferralCents).
+ * payPeriod.taxYear is required (see compute401kDeferralCents), and so is
+ * employee.payPeriodsPerYear, for hourly employees too: withholding
+ * annualizes each paycheck.
  * plan: { allowsCatchUp?: boolean } - plan-level features.
+ * yearToDateFicaWagesCents: gross paid earlier this calendar year (for the
+ * Social Security wage base and the Additional Medicare threshold).
+ *
+ * Taxes come first, then the 401(k): if the full deferral would leave
+ * negative net pay, the deferral is reduced to what's left
+ * (cappedByNetPay). If taxes alone exceed gross pay, this throws so a
+ * person can review the employee's W-4 instead of issuing a negative check.
  */
-function runPayrollForEmployee(employee, payPeriod, yearToDateDeferralCents = 0, plan = {}) {
+function runPayrollForEmployee(
+  employee,
+  payPeriod,
+  yearToDateDeferralCents = 0,
+  plan = {},
+  yearToDateFicaWagesCents = 0
+) {
   const grossPayCents = computeGrossPayCents(employee, payPeriod);
-  const withholding = computeTaxWithholdingCents(grossPayCents);
-  const deferral = compute401kDeferralCents(grossPayCents, employee, yearToDateDeferralCents, {
-    taxYear: payPeriod.taxYear,
-    planAllowsCatchUp: Boolean(plan.allowsCatchUp),
-  });
+  const taxYear = payPeriod.taxYear;
+  const deferralOptions = { taxYear, planAllowsCatchUp: Boolean(plan.allowsCatchUp) };
 
-  const netPayCents =
-    grossPayCents - withholding.totalCents - deferral.actualCents;
+  const deferralFor = (maxCents) =>
+    compute401kDeferralCents(grossPayCents, employee, yearToDateDeferralCents, { ...deferralOptions, maxCents });
+  const withholdingFor = (deferral) =>
+    computeTaxWithholdingCents({
+      taxYear,
+      grossPayCents,
+      preTaxDeductionsCents: preTaxDeferralCents(deferral),
+      payPeriodsPerYear: employee.payPeriodsPerYear,
+      w4: employee.w4 ?? null,
+      yearToDateFicaWagesCents,
+    });
+  const netFor = (deferral, withholding) => grossPayCents - withholding.totalCents - deferral.actualCents;
+
+  let deferral = deferralFor(Infinity);
+  let withholding = withholdingFor(deferral);
+
+  if (netFor(deferral, withholding) < 0) {
+    // Net pay rises as the deferral shrinks (each deferred dollar costs
+    // less than a dollar of net pay), so binary-search the largest
+    // deferral that leaves net pay at or above zero.
+    const zero = deferralFor(0);
+    if (netFor(zero, withholdingFor(zero)) < 0) {
+      throw new Error("taxes withheld would exceed gross pay; review this employee's Form W-4");
+    }
+    let lo = 0;
+    let hi = deferral.actualCents;
+    while (hi - lo > 1) {
+      const mid = Math.floor((lo + hi) / 2);
+      const d = deferralFor(mid);
+      if (netFor(d, withholdingFor(d)) >= 0) lo = mid;
+      else hi = mid;
+    }
+    deferral = deferralFor(lo);
+    withholding = withholdingFor(deferral);
+  }
 
   return {
     employeeId: employee.id,
@@ -172,7 +263,7 @@ function runPayrollForEmployee(employee, payPeriod, yearToDateDeferralCents = 0,
     grossPayCents,
     taxWithholding: withholding,
     contribution401k: deferral,
-    netPayCents,
+    netPayCents: netFor(deferral, withholding),
   };
 }
 
@@ -181,5 +272,6 @@ module.exports = {
   computeGrossPayCents,
   computeTaxWithholdingCents,
   compute401kDeferralCents,
+  preTaxDeferralCents,
   runPayrollForEmployee,
 };

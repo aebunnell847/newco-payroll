@@ -22,6 +22,11 @@
 // through a different code path either.
 
 const { DatabaseSync } = require("node:sqlite");
+const { validateW4 } = require("../regulatory/federalWithholding");
+
+// Bump when the schema changes. An existing file at an older version is
+// refused rather than silently used with missing columns.
+const SCHEMA_VERSION = 2;
 
 const SCHEMA = `
 PRAGMA foreign_keys = ON;
@@ -34,6 +39,9 @@ CREATE TABLE IF NOT EXISTS employees (
   hourly_rate_cents     INTEGER CHECK (hourly_rate_cents IS NULL OR hourly_rate_cents >= 0),
   deferral_election_pct REAL NOT NULL DEFAULT 0 CHECK (deferral_election_pct BETWEEN 0 AND 100),
   birth_year            INTEGER,
+  -- Form W-4 elections as JSON (validated on write); NULL = none on file.
+  -- Filing status and dollar elections only: no name, SSN or address.
+  w4_json               TEXT,
   consent_attestation_id TEXT,
   status                TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'terminated')),
   CHECK (pay_type <> 'salary' OR (annual_salary_cents IS NOT NULL AND pay_periods_per_year IS NOT NULL)),
@@ -78,6 +86,9 @@ CREATE TABLE IF NOT EXISTS payroll_results (
   outcome                 TEXT NOT NULL CHECK (outcome IN ('paid', 'skipped', 'error')),
   gross_pay_cents         INTEGER,
   federal_withholding_cents INTEGER,
+  social_security_cents   INTEGER,
+  medicare_cents          INTEGER,
+  additional_medicare_cents INTEGER,
   state_withholding_cents INTEGER,
   deferral_requested_cents INTEGER,
   deferral_cents          INTEGER,
@@ -121,6 +132,7 @@ function rowToEmployee(row) {
     hourlyRateCents: row.hourly_rate_cents ?? undefined,
     deferralElectionPct: row.deferral_election_pct,
     birthYear: row.birth_year ?? undefined,
+    w4: row.w4_json ? JSON.parse(row.w4_json) : null,
     consentAttestationId: row.consent_attestation_id ?? null,
     status: row.status,
   };
@@ -144,6 +156,9 @@ function rowToResult(row) {
     outcome: row.outcome,
     grossPayCents: row.gross_pay_cents,
     federalWithholdingCents: row.federal_withholding_cents,
+    socialSecurityCents: row.social_security_cents,
+    medicareCents: row.medicare_cents,
+    additionalMedicareCents: row.additional_medicare_cents,
     stateWithholdingCents: row.state_withholding_cents,
     deferralRequestedCents: row.deferral_requested_cents,
     deferralCents: row.deferral_cents,
@@ -165,7 +180,16 @@ function rowToResult(row) {
  */
 function openPayrollStore(path = ":memory:") {
   const db = new DatabaseSync(path);
+  const existingVersion = db.prepare("PRAGMA user_version").get().user_version;
+  const hasTables = db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table'").get().n > 0;
+  if (hasTables && existingVersion !== SCHEMA_VERSION) {
+    db.close();
+    throw new Error(
+      `payroll database is at schema version ${existingVersion}, this code needs ${SCHEMA_VERSION}; migrate it first`
+    );
+  }
   db.exec(SCHEMA);
+  db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
 
   const tx = (fn) => {
     db.exec("BEGIN");
@@ -205,6 +229,7 @@ function openPayrollStore(path = ":memory:") {
         hourlyRateCents = null,
         deferralElectionPct = 0,
         birthYear = null,
+        w4 = null,
         consentAttestationId = null,
         status = "active",
       } = employee;
@@ -212,10 +237,11 @@ function openPayrollStore(path = ":memory:") {
       assertCents(annualSalaryCents, "annualSalaryCents", { optional: true });
       assertCents(hourlyRateCents, "hourlyRateCents", { optional: true });
       if (birthYear !== null && !Number.isInteger(birthYear)) throw new Error("birthYear must be an integer year");
+      validateW4(w4);
       db.prepare(
         `INSERT INTO employees (id, pay_type, annual_salary_cents, pay_periods_per_year, hourly_rate_cents,
-                                deferral_election_pct, birth_year, consent_attestation_id, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                deferral_election_pct, birth_year, w4_json, consent_attestation_id, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            pay_type = excluded.pay_type,
            annual_salary_cents = excluded.annual_salary_cents,
@@ -223,6 +249,7 @@ function openPayrollStore(path = ":memory:") {
            hourly_rate_cents = excluded.hourly_rate_cents,
            deferral_election_pct = excluded.deferral_election_pct,
            birth_year = excluded.birth_year,
+           w4_json = excluded.w4_json,
            consent_attestation_id = excluded.consent_attestation_id,
            status = excluded.status`
       ).run(
@@ -233,6 +260,7 @@ function openPayrollStore(path = ":memory:") {
         hourlyRateCents,
         deferralElectionPct,
         birthYear,
+        w4 === null ? null : JSON.stringify(w4),
         consentAttestationId,
         status
       );
@@ -335,6 +363,21 @@ function openPayrollStore(path = ":memory:") {
       return row.total;
     },
 
+    /**
+     * Year-to-date FICA wages: gross pay in paid results for this tax year
+     * (calendar year), for the Social Security wage base and the Additional
+     * Medicare threshold.
+     */
+    yearToDateFicaWagesCents(employeeId, taxYear) {
+      const row = db
+        .prepare(
+          `SELECT COALESCE(SUM(gross_pay_cents), 0) AS total FROM payroll_results
+           WHERE employee_id = ? AND tax_year = ? AND outcome = 'paid'`
+        )
+        .get(employeeId, taxYear);
+      return row.total;
+    },
+
     getResult(employeeId, payPeriodId) {
       const row = db
         .prepare("SELECT * FROM payroll_results WHERE employee_id = ? AND pay_period_id = ?")
@@ -358,12 +401,16 @@ function openPayrollStore(path = ":memory:") {
       const insert = db.prepare(
         `INSERT INTO payroll_results (
            employee_id, pay_period_id, tax_year, outcome, gross_pay_cents, federal_withholding_cents,
+           social_security_cents, medicare_cents, additional_medicare_cents,
            state_withholding_cents, deferral_requested_cents, deferral_cents, catch_up_portion_cents,
            roth_catch_up_required, net_pay_cents, ledger_employee_id, ledger_pay_period_id, withheld_at, reason)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(employee_id, pay_period_id) DO UPDATE SET
            outcome = excluded.outcome, gross_pay_cents = excluded.gross_pay_cents,
            federal_withholding_cents = excluded.federal_withholding_cents,
+           social_security_cents = excluded.social_security_cents,
+           medicare_cents = excluded.medicare_cents,
+           additional_medicare_cents = excluded.additional_medicare_cents,
            state_withholding_cents = excluded.state_withholding_cents,
            deferral_requested_cents = excluded.deferral_requested_cents,
            deferral_cents = excluded.deferral_cents, catch_up_portion_cents = excluded.catch_up_portion_cents,
@@ -387,6 +434,9 @@ function openPayrollStore(path = ":memory:") {
             outcome,
             r?.grossPayCents ?? null,
             r?.taxWithholding.federalCents ?? null,
+            r?.taxWithholding.socialSecurityCents ?? null,
+            r?.taxWithholding.medicareCents ?? null,
+            r?.taxWithholding.additionalMedicareCents ?? null,
             r?.taxWithholding.stateCents ?? null,
             d?.requestedCents ?? null,
             d?.actualCents ?? null,
