@@ -57,10 +57,11 @@ component implements).
 
 ## Natural next steps
 
-- Replace the PLACEHOLDER state withholding rate in `payrollEngine.js`
-  with real state methods, sourced and tested the same way as
-  `regulatory/federalWithholding.js` (generate tables from the state's own
-  publication; never hand-type brackets).
+- Add states to `regulatory/state/` one file at a time: generate tables
+  from the state agency's own publication (never hand-type brackets),
+  declare the state's wage basis (does it tax 401(k) deferrals?), its
+  no-certificate default, and test against the agency's own worked
+  examples. Then local taxes and reciprocity.
 - Add each new tax year to `regulatory/` (401(k) limits, Pub 15-T tables,
   FICA) when the IRS publishes it - payroll for that year refuses to run
   until then.

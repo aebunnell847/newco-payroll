@@ -14,21 +14,16 @@
 const { annualDeferralCapCents, rothCatchUpRequired } = require("../regulatory/irsLimits");
 const { computeFederalWithholdingCents } = require("../regulatory/federalWithholding");
 const { computeFicaCents } = require("../regulatory/fica");
+const { computeStateWithholdingCents } = require("../regulatory/state");
 
 /**
- * Sourced, by tax year (src/regulatory/): 401(k) limits (irsLimits.js),
- * federal income tax withholding per IRS Publication 15-T
- * (federalWithholding.js), and Social Security / Medicare (fica.js).
- *
- * IMPORTANT: STATE withholding is still a PLACEHOLDER flat rate, not a
- * real state calculation. Each state has its own method and tables; they
- * belong in a sourced table like the federal ones (or the regulatory RAG
- * system described in research/regulatory-rag-architecture.md), not a
- * number typed here. Every result says stateIsPlaceholder: true.
+ * Every rate and limit used here is sourced, by tax year, in
+ * src/regulatory/: 401(k) limits (irsLimits.js), federal income tax
+ * withholding per IRS Publication 15-T (federalWithholding.js), Social
+ * Security / Medicare (fica.js), and state withholding for the supported
+ * states (state/). An unsupported state or year throws; nothing falls back
+ * to a guessed rate.
  */
-const PLACEHOLDER_CONFIG = {
-  flatStateWithholdingRate: 0.05, // NOT a real state calculation
-};
 
 /**
  * computeGrossPayCents
@@ -80,10 +75,13 @@ function preTaxDeferralCents(deferral) {
  *             (gross minus pre-tax deferrals) and the employee's Form W-4
  *   FICA    - Social Security (to the wage base) + Medicare + Additional
  *             Medicare, on gross pay (deferrals don't reduce FICA wages)
- *   state   - PLACEHOLDER flat rate on gross (see PLACEHOLDER_CONFIG)
+ *   state   - the work state's own method (regulatory/state/), on that
+ *             state's wage basis (some exclude pre-tax 401(k), PA doesn't)
  *
  * w4: the employee's Form W-4 (see federalWithholding.js), or null if none
  * is on file - then the IRS default (Single, no adjustments) applies.
+ * workState / stateW4: two-letter work state and that state's certificate
+ * (DE 4, IL-W-4, ...), or null for none on file (each state's default).
  */
 function computeTaxWithholdingCents({
   taxYear,
@@ -92,6 +90,8 @@ function computeTaxWithholdingCents({
   payPeriodsPerYear,
   w4 = null,
   yearToDateFicaWagesCents = 0,
+  workState,
+  stateW4 = null,
 }) {
   const federalTaxableWagesCents = grossPayCents - preTaxDeductionsCents;
   const federal = computeFederalWithholdingCents({
@@ -101,7 +101,14 @@ function computeTaxWithholdingCents({
     w4,
   });
   const fica = computeFicaCents({ taxYear, ficaWagesCents: grossPayCents, yearToDateFicaWagesCents });
-  const stateCents = Math.round(grossPayCents * PLACEHOLDER_CONFIG.flatStateWithholdingRate);
+  const state = computeStateWithholdingCents({
+    state: workState,
+    taxYear,
+    grossPayCents,
+    federalTaxableWagesCents,
+    payPeriodsPerYear,
+    form: stateW4,
+  });
 
   return {
     federalCents: federal.federalCents,
@@ -112,9 +119,11 @@ function computeTaxWithholdingCents({
     medicareCents: fica.medicareCents,
     additionalMedicareCents: fica.additionalMedicareCents,
     ficaCents: fica.totalCents,
-    stateCents,
-    stateIsPlaceholder: true,
-    totalCents: federal.federalCents + fica.totalCents + stateCents,
+    stateCents: state.stateCents,
+    state: state.state,
+    stateWagesCents: state.wagesCents,
+    stateFormBasis: state.formBasis,
+    totalCents: federal.federalCents + fica.totalCents + state.stateCents,
   };
 }
 
@@ -231,6 +240,8 @@ function runPayrollForEmployee(
       payPeriodsPerYear: employee.payPeriodsPerYear,
       w4: employee.w4 ?? null,
       yearToDateFicaWagesCents,
+      workState: employee.workState,
+      stateW4: employee.stateW4 ?? null,
     });
   const netFor = (deferral, withholding) => grossPayCents - withholding.totalCents - deferral.actualCents;
 
@@ -268,7 +279,6 @@ function runPayrollForEmployee(
 }
 
 module.exports = {
-  PLACEHOLDER_CONFIG,
   computeGrossPayCents,
   computeTaxWithholdingCents,
   compute401kDeferralCents,

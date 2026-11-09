@@ -28,6 +28,8 @@ src/
   regulatory/federalWithholding.js - federal income tax withholding, IRS
                             Pub 15-T Worksheet 1A + percentage tables
   regulatory/fica.js       - Social Security and Medicare (IRS Pub 15)
+  regulatory/state/        - state income tax withholding, one file per
+                            state, each with its own sources and years
   payroll/payrollRun.js    - orchestrates a batch: consent check -> payroll
                             math -> record to the ledger
   payroll/storedPayrollRun.js - runs a pay period from the data layer and
@@ -129,7 +131,7 @@ const { runStoredPayroll, remittanceInstructionsForPeriod } = require("./src/pay
 const { toRemittanceCsv } = require("./src/remittance/instructions");
 
 const store = openPayrollStore("payroll.db"); // or ":memory:"
-store.upsertEmployee({ id: "emp-001", payType: "salary", annualSalaryCents: 104_000_00,
+store.upsertEmployee({ id: "emp-001", payType: "salary", workState: "CA", annualSalaryCents: 104_000_00,
                        payPeriodsPerYear: 26, deferralElectionPct: 5, consentAttestationId: "0x..." });
 store.createPayPeriod({ id: "2026-P01", periodStart: "2025-12-22", periodEnd: "2026-01-04", payDate: "2026-01-09" });
 await runStoredPayroll(store, "2026-P01", { chainClient, employeeIdKey, plan: { allowsCatchUp: true } });
@@ -209,15 +211,38 @@ because withholding annualizes each paycheck.
 
 A year with no sourced tables throws, same as the 401(k) limits.
 
-## What's still a placeholder
+## State withholding: one state at a time, sourced
 
-**State withholding** is a flat 5% of gross. Each state has its own method
-and tables, which belong in a sourced table like the federal ones (or the
-regulatory RAG system described in `research/regulatory-rag-architecture.md`
-in `newco-docs`), not a number typed in. Every result says
-`stateIsPlaceholder: true`.
+State tax follows the employee's **work state** (`employee.workState`) and
+that state's withholding certificate (`employee.stateW4`, or null for none
+on file). Each state lives in its own file under `src/regulatory/state/`,
+with its own sources and tax years.
 
-Also not modeled yet:
+| State | Method | Wages taxed | No certificate on file | Years |
+|---|---|---|---|---|
+| CA | EDD Method B, annual method, DE 4 | Gross minus pre-tax 401(k) (EDD DE 231A) | Single, 0 allowances (DE 44) | 2026 |
+| IL | IL-700-T automated method, IL-W-4 | Gross minus pre-tax 401(k) (86 Ill. Adm. Code 100.7010) | No exemptions (IL-W-4) | 2025, 2026 |
+| PA | Flat 3.07% | **Gross; 401(k) deferrals are taxed** (REV-415) | No certificate exists | 2025, 2026 |
+| TX, FL, WA | No individual income tax | n/a | n/a | 2025, 2026 |
+
+How the figures are checked:
+- **California.** `tools/state/generate_ca_method_b.py` generates the
+  tables from EDD's own PDF. EDD's worked Examples A, B, E and F match to
+  the cent. C and D come within 2 cents, because EDD worked those with its
+  per-period tables while this uses the annual method EDD allows.
+- **Illinois.** Both years' booklet examples match to the cent.
+
+An employee with **no work state**, or one in a state or year that isn't
+listed, fails for review, never a guessed rate. Washington is listed only
+through 2026, because it has enacted a tax on income over $1M starting in
+2028.
+
+Not modeled yet:
+- other states;
+- local income taxes (including PA's local earned income tax);
+- reciprocity agreements and resident-state credits.
+
+## Not modeled yet
 - supplemental-wage (bonus) flat rates;
 - Section 125 cafeteria-plan deductions, which would reduce both income-tax
   and FICA wages;
@@ -290,5 +315,5 @@ wallet-gated store for employee PII (the payroll records above hold none),
 deployment to any real public testnet (see
 `newco-contracts/docs/DEPLOYING_TO_TESTNET.md` for exactly what that
 needs), a production frontend (the demo above is a dev proof, not a
-product UI), state withholding (see above), and the regulatory RAG
+product UI), the remaining states and local taxes (see above), and the regulatory RAG
 system the sourced limits table should eventually be generated from.

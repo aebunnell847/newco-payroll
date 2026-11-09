@@ -10,7 +10,6 @@ const {
   computeTaxWithholdingCents,
   compute401kDeferralCents,
   runPayrollForEmployee,
-  PLACEHOLDER_CONFIG,
 } = require("../src/payroll/payrollEngine");
 
 describe("computeGrossPayCents", () => {
@@ -48,6 +47,7 @@ describe("computeTaxWithholdingCents", () => {
     grossPayCents: 400_000, // $4,000 biweekly
     payPeriodsPerYear: 26,
     w4: { formYear: 2026, filingStatus: "single" },
+    workState: "TX",
   };
 
   it("withholds federal tax on gross minus pre-tax deductions, per Pub 15-T", () => {
@@ -66,11 +66,24 @@ describe("computeTaxWithholdingCents", () => {
     expect(w.ficaCents).to.equal(30_600);
   });
 
-  it("still labels state withholding a placeholder", () => {
-    const w = computeTaxWithholdingCents(base);
-    expect(w.stateIsPlaceholder).to.equal(true);
-    expect(w.stateCents).to.equal(Math.round(400_000 * PLACEHOLDER_CONFIG.flatStateWithholdingRate));
-    expect(w.totalCents).to.equal(w.federalCents + w.ficaCents + w.stateCents);
+  it("withholds state tax by the work state's own method and wage basis", () => {
+    const tx = computeTaxWithholdingCents({ ...base, preTaxDeductionsCents: 20_000 });
+    expect(tx.stateCents).to.equal(0);
+    // PA taxes gross (401(k) deferrals included): 3.07% x $4,000
+    const pa = computeTaxWithholdingCents({ ...base, preTaxDeductionsCents: 20_000, workState: "PA" });
+    expect(pa.stateWagesCents).to.equal(400_000);
+    expect(pa.stateCents).to.equal(12_280);
+    // IL excludes pre-tax deferrals and, with no IL-W-4, allows no exemptions: 4.95% x $3,800
+    const il = computeTaxWithholdingCents({ ...base, preTaxDeductionsCents: 20_000, workState: "IL" });
+    expect(il.stateWagesCents).to.equal(380_000);
+    expect(il.stateCents).to.equal(18_810);
+    expect(il.stateFormBasis).to.equal("none-on-file");
+    expect(il.totalCents).to.equal(il.federalCents + il.ficaCents + il.stateCents);
+  });
+
+  it("refuses to guess a state it has no sourced method for", () => {
+    expect(() => computeTaxWithholdingCents({ ...base, workState: "NY" })).to.throw(/no sourced withholding method for state "NY"/);
+    expect(() => computeTaxWithholdingCents({ ...base, workState: undefined })).to.throw(/no work state on file/);
   });
 
   it("uses the IRS default (Single, no adjustments) when no W-4 is on file", () => {
@@ -182,12 +195,14 @@ describe("runPayrollForEmployee (end-to-end for one employee, one pay period)", 
     const employee = {
       id: "emp-001",
       payType: "salary",
+      workState: "TX",
       annualSalaryCents: 104_000_00,
       payPeriodsPerYear: 26,
       deferralElectionPct: 5,
       w4: { formYear: 2026, filingStatus: "single" },
     };
     const payPeriod = { id: "2026-P01", taxYear: 2026 };
+    // (workState "TX": no state income tax, so the hand-check below is federal + FICA)
 
     const result = runPayrollForEmployee(employee, payPeriod, 0);
 
@@ -204,12 +219,13 @@ describe("runPayrollForEmployee (end-to-end for one employee, one pay period)", 
       preTaxDeductionsCents: expectedDeferral.actualCents,
       payPeriodsPerYear: 26,
       w4: employee.w4,
+      workState: "TX",
     });
     expect(result.taxWithholding).to.deep.equal(expectedWithholding);
 
     // Hand-checked against Pub 15-T Worksheet 1A and Pub 15 (see above):
-    // $4,000 - $496.38 federal - $248 SS - $58 Medicare - $200 state - $200 401(k)
-    expect(result.netPayCents).to.equal(279_762);
+    // $4,000 - $496.38 federal - $248 SS - $58 Medicare - $0 state (TX) - $200 401(k)
+    expect(result.netPayCents).to.equal(299_762);
 
     // Net pay must always equal gross minus withholding minus the 401(k) deferral -
     // this is the invariant that keeps payroll, taxes, and retirement contributions
@@ -223,6 +239,7 @@ describe("runPayrollForEmployee (end-to-end for one employee, one pay period)", 
     const employee = {
       id: "emp-all-in",
       payType: "salary",
+      workState: "TX",
       annualSalaryCents: 104_000_00,
       payPeriodsPerYear: 26,
       deferralElectionPct: 100,
@@ -233,14 +250,15 @@ describe("runPayrollForEmployee (end-to-end for one employee, one pay period)", 
     expect(result.contribution401k.cappedByNetPay).to.equal(true);
     expect(result.netPayCents).to.be.at.least(0);
     expect(result.netPayCents).to.be.below(100); // as close to zero as cents allow
-    // $4,000 - $248 SS - $58 Medicare - $200 state, with federal at $0 at that deferral
-    expect(result.contribution401k.actualCents).to.equal(349_400);
+    // $4,000 - $248 SS - $58 Medicare - $0 state (TX), with federal at $0 at that deferral
+    expect(result.contribution401k.actualCents).to.equal(369_400);
   });
 
   it("taxes Roth-required catch-up dollars as wages instead of excluding them", () => {
     const employee = {
       id: "emp-roth",
       payType: "salary",
+      workState: "TX",
       annualSalaryCents: 520_000_00, // $20,000 a period
       payPeriodsPerYear: 26,
       deferralElectionPct: 40, // $8,000, all catch-up once at the base limit
@@ -264,6 +282,7 @@ describe("runPayrollForEmployee (end-to-end for one employee, one pay period)", 
     const employee = {
       id: "emp-high",
       payType: "salary",
+      workState: "TX",
       annualSalaryCents: 520_000_00,
       payPeriodsPerYear: 26,
       w4: { formYear: 2026, filingStatus: "single" },
@@ -279,6 +298,7 @@ describe("runPayrollForEmployee (end-to-end for one employee, one pay period)", 
     const employee = {
       id: "emp-extra",
       payType: "salary",
+      workState: "TX",
       annualSalaryCents: 26_000_00, // $1,000 a period
       payPeriodsPerYear: 26,
       w4: { formYear: 2026, filingStatus: "single", step4cExtraWithholdingCents: 2_000_00 },

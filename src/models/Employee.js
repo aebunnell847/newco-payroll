@@ -30,6 +30,10 @@
 //                          regulatory/federalWithholding.js), or null if
 //                          none is on file (IRS default: Single, no
 //                          adjustments)
+//   workState           - two-letter state where the employee works; picks
+//                          the state withholding method (regulatory/state/)
+//   stateW4             - that state's withholding certificate (DE 4,
+//                          IL-W-4, ...), or null for none on file
 
 function createEmployee({
   id,
@@ -41,6 +45,8 @@ function createEmployee({
   birthYear,
   priorYearFicaWagesCents,
   w4 = null,
+  workState,
+  stateW4 = null,
 }) {
   if (!id) throw new Error("employee requires an id");
   if (payType !== "salary" && payType !== "hourly") {
@@ -57,6 +63,8 @@ function createEmployee({
     birthYear,
     priorYearFicaWagesCents,
     w4,
+    workState,
+    stateW4,
   };
 }
 

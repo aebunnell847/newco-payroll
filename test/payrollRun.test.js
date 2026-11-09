@@ -31,6 +31,7 @@ function makeFakeChainClient({ consentActiveByAttestation = {} } = {}) {
 const salariedEmployee = (id, deferralElectionPct = 5) => ({
   id,
   payType: "salary",
+  workState: "TX",
   annualSalaryCents: 104_000_00,
   payPeriodsPerYear: 26,
   deferralElectionPct,

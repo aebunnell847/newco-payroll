@@ -123,6 +123,7 @@ describe("integration: real deployed contracts on a local chain", function () {
     const employee = {
       id: "emp-integration-001",
       payType: "salary",
+      workState: "TX",
       annualSalaryCents: 130_000_00,
       payPeriodsPerYear: 26,
       deferralElectionPct: 6,
@@ -192,7 +193,7 @@ describe("integration: real deployed contracts on a local chain", function () {
       attestations[id] = receipt.logs.map((l) => consentRegistry.interface.parseLog(l)).find((e) => e.name === "AccessGranted").args.attestationId;
     }
     const employees = ["emp-remit-A", "emp-remit-B"].map((id) => ({
-      id, payType: "salary", annualSalaryCents: 104_000_00, payPeriodsPerYear: 26, deferralElectionPct: 5,
+      id, payType: "salary", workState: "TX", annualSalaryCents: 104_000_00, payPeriodsPerYear: 26, deferralElectionPct: 5,
     }));
     const outcomes = await runPayrollBatch(employees, { id: "2026-P-remit", taxYear: 2026 }, {
       chainClient,
