@@ -93,6 +93,7 @@ function computeTaxWithholdingCents({
   workState,
   stateW4 = null,
   payDate = null,
+  monthToDate = null,
 }) {
   const federalTaxableWagesCents = grossPayCents - preTaxDeductionsCents;
   const federal = computeFederalWithholdingCents({
@@ -114,6 +115,7 @@ function computeTaxWithholdingCents({
     federalWithholdingCents: federal.federalCents,
     ficaCents: fica.totalCents,
     yearToDateFicaWagesCents,
+    monthToDate,
   });
 
   return {
@@ -232,7 +234,8 @@ function runPayrollForEmployee(
   payPeriod,
   yearToDateDeferralCents = 0,
   plan = {},
-  yearToDateFicaWagesCents = 0
+  yearToDateFicaWagesCents = 0,
+  monthToDate = null
 ) {
   const grossPayCents = computeGrossPayCents(employee, payPeriod);
   const taxYear = payPeriod.taxYear;
@@ -251,6 +254,7 @@ function runPayrollForEmployee(
       workState: employee.workState,
       stateW4: employee.stateW4 ?? null,
       payDate: payPeriod.payDate ?? null,
+      monthToDate,
     });
   const netFor = (deferral, withholding) => grossPayCents - withholding.totalCents - deferral.actualCents;
 

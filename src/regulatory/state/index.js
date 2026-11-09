@@ -117,6 +117,7 @@ function computeStateWithholdingCents({
   federalWithholdingCents = null,
   ficaCents = null,
   yearToDateFicaWagesCents = 0,
+  monthToDate = null,
 }) {
   if (typeof state !== "string" || !state) {
     throw new Error("no work state on file; state withholding needs employee.workState (e.g. \"CA\")");
@@ -134,6 +135,8 @@ function computeStateWithholdingCents({
     federalWithholdingCents,
     ficaCents,
     yearToDateFicaWagesCents,
+    monthToDate,
+    grossPayCents,
   });
   const localities = out.localities || {};
   const localCents = Object.values(localities).reduce((a, b) => a + b, 0);

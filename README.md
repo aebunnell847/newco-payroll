@@ -350,6 +350,23 @@ W-2 reports them separately. They are included in total withholding.
 NYC and Yonkers residency comes from the IT-2104, so with no IT-2104 on file
 no city tax is withheld.
 
+Local taxes withheld today:
+
+| Locality | Code | What | Source |
+|---|---|---|---|
+| New York City | `NYC` | Resident tax, from the IT-2104 | NYS-50-T-NYC |
+| Yonkers residents | `YONKERS` | 16.75% surcharge on NYS tax | NYS-50-T-Y |
+| Yonkers nonresidents | `YONKERS_NR` | 0.50% earnings tax, Method VIII; employer sets `worksInYonkers` | NYS-50-T-Y |
+| Indiana counties | `IN-<code>` | County tax by Jan. 1 residence (92 counties) | Departmental Notice #1 |
+| Maryland counties | (in `stateCents`) | Combined with state tax, by MW507 county | Comptroller percentage-method tables |
+| Oregon | `OR_STT` | Statewide transit tax, 0.1% of Oregon wages | Oregon DOR |
+| Denver | `DENVER_OPT` | $5.75 once a month at $500 of Denver pay; employer sets `denverWorker` | Denver Tax Guide Topic 61 |
+
+Denver's tax is monthly, so it needs month-to-date pay: the stored payroll
+run supplies it from the database (`payrollStore.monthToDate`), and a run
+without it refuses a Denver worker rather than guess. Aurora repealed its
+occupational privilege tax effective January 1, 2025.
+
 An employee with **no work state**, or one in a state or year that isn't
 listed, fails for review, never a guessed rate. Washington is listed only
 through 2026, because it has enacted a tax on income over $1M starting in
@@ -359,9 +376,9 @@ Not modeled yet:
 - other states;
 - other local income taxes, including PA's local earned income tax,
   Michigan's city income taxes (Detroit and others), Kentucky's
-  occupational license taxes, Denver and Aurora's occupational privilege
-  taxes, and the
-  Yonkers *nonresident* earnings tax (0.5% of wages earned in Yonkers);
+  occupational license taxes, Ohio school district and municipal taxes,
+  Alabama occupational taxes and Wilmington's earned income tax (the
+  city's site refuses automated requests, so it isn't sourced yet);
 - New York pay frequencies other than daily, weekly, biweekly,
   semimonthly, monthly and annual;
 - reciprocity agreements and resident-state credits (for example, a

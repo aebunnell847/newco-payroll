@@ -32,7 +32,17 @@
 //
 // Wages: FAQ 6 - not included are "retirement plans (section 401k, etc.)".
 //
-// Not covered: the Oregon statewide transit tax and local transit taxes.
+// Statewide transit tax (ORS 320.550): 0.1% of wages, withheld from every
+// employee working in Oregon (and Oregon residents working elsewhere, which
+// this work-state engine doesn't see), on the same ORS 316.162 wages - so
+// it's withheld whatever the OR-W-4 says, including with no certificate or
+// an exemption from income tax withholding ("employees with high
+// exemptions ... are subject to Statewide Transit Tax withholding").
+// Returned as the OR_STT locality. Not covered: the TriMet and Lane
+// Transit District taxes, which are employer-paid, not withheld.
+//
+// Measure 120 (repealing the transit tax) "did not pass in the May 19,
+// 2026 primary election", so the rate continues (DOR).
 
 const { formChecker, onFile } = require("./formUtil");
 const { fromBaseTable } = require("./brackets");
@@ -43,6 +53,7 @@ const TABLES = Object.freeze({
     federalCapCents: 8_750_00,
     exemptionCreditCents: 263_00,
     noCertificateRateBp: 800,
+    transitTaxBp: 10,
     under50k: Object.freeze({
       single: Object.freeze([
         [0, 263_00, 475],
@@ -88,6 +99,7 @@ const TABLES = Object.freeze({
     }),
     sources: Object.freeze([
       "Oregon DOR, 150-206-436 Oregon Withholding Tax Formulas (Rev. 12-31-25): https://www.oregon.gov/dor/forms/FormsPubs/withholding-tax-formulas_206-436_2026.pdf",
+      "Oregon DOR, Statewide Transit Tax: https://www.oregon.gov/dor/programs/businesses/Pages/statewide-transit-tax.aspx",
     ]),
   }),
 });
@@ -102,7 +114,13 @@ function validateForm(form) {
   c.cents(form, "additionalWithholdingCents");
 }
 
-function compute({ taxYear, wagesCents, payPeriodsPerYear, form, federalWithholdingCents }) {
+function compute(args) {
+  const t = TABLES[args.taxYear];
+  const out = incomeTax(args);
+  return { ...out, localities: { OR_STT: Math.round((args.wagesCents * t.transitTaxBp) / 10_000) } };
+}
+
+function incomeTax({ taxYear, wagesCents, payPeriodsPerYear, form, federalWithholdingCents }) {
   const t = TABLES[taxYear];
   validateForm(form);
   const has = onFile(form);

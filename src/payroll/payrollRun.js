@@ -30,6 +30,10 @@ const { toLedgerEmployeeId, parseEmployeeIdKey } = require("../chain/ledgerIds")
  *                             Medicare threshold). Defaults to 0, i.e. the
  *                             first paycheck of the year; the data layer
  *                             supplies the real figure.
+ *   monthToDateFor         - (employee) => { grossCents, localities } already
+ *                             paid this calendar month, for monthly local
+ *                             taxes (Denver OPT). Defaults to null; a state
+ *                             rule that needs it throws rather than guess.
  *   employeeIdKey          - hex secret (NEWCO_EMPLOYEE_ID_KEY) used to
  *                             derive each employee's on-chain ID; see
  *                             chain/ledgerIds.js. Required whenever
@@ -58,6 +62,7 @@ async function runPayrollBatch(employees, payPeriod, options = {}) {
     consentAttestationFor = () => null,
     yearToDateDeferralFor = () => 0,
     yearToDateFicaWagesFor = () => 0,
+    monthToDateFor = () => null,
     employeeIdKey = null,
     plan = {},
     hoursFor = null,
@@ -98,7 +103,8 @@ async function runPayrollBatch(employees, payPeriod, options = {}) {
         employeePeriod,
         yearToDateDeferralCents,
         plan,
-        yearToDateFicaWagesFor(employee)
+        yearToDateFicaWagesFor(employee),
+        monthToDateFor(employee)
       );
 
       let ledgerEntry;
