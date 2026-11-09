@@ -82,7 +82,7 @@ describe("computeTaxWithholdingCents", () => {
   });
 
   it("refuses to guess a state it has no sourced method for", () => {
-    expect(() => computeTaxWithholdingCents({ ...base, workState: "OR" })).to.throw(/no sourced withholding method for state "OR"/);
+    expect(() => computeTaxWithholdingCents({ ...base, workState: "PR" })).to.throw(/no sourced withholding method for state "PR"/);
     expect(() => computeTaxWithholdingCents({ ...base, workState: undefined })).to.throw(/no work state on file/);
   });
 

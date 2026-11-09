@@ -21,12 +21,13 @@ describe("state withholding: registry", () => {
   it("lists exactly the states with a sourced method", () => {
     expect(SUPPORTED_STATES).to.deep.equal([
       "AK", "AL", "AR", "AZ", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "IA", "ID", "IL", "IN", "KS", "KY", "LA",
-      "ME", "MI", "MO", "MS", "MT", "NC", "ND", "NE", "NH", "NJ", "NV", "NY", "OK", "PA", "SC", "SD", "TN", "TX", "UT", "VA", "WA", "WI", "WY",
+      "ME", "MI", "MN", "MO", "MS", "MT", "NC", "ND", "NE", "NH", "NJ", "NV", "NY", "OK", "OR", "PA", "RI", "SC",
+      "SD", "TN", "TX", "UT", "VA", "VT", "WA", "WI", "WV", "WY",
     ]);
   });
 
   it("refuses an unsupported state, a missing state, or an unsourced year", () => {
-    expect(() => run("OR", 100_000, 52, null)).to.throw(/no sourced withholding method for state "OR"/);
+    expect(() => run("PR", 100_000, 52, null)).to.throw(/no sourced withholding method for state "PR"/);
     expect(() => run(undefined, 100_000, 52, null)).to.throw(/no work state on file/);
     expect(() => run("CA", 100_000, 52, null, { taxYear: 2025 })).to.throw(/no sourced California withholding for tax year 2025/);
     expect(() => run("WA", 100_000, 52, null, { taxYear: 2028 })).to.throw(/Washington withholding for tax year 2028/);
