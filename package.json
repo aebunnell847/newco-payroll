@@ -12,6 +12,9 @@
   "keywords": ["payroll", "401k", "hris", "blockchain"],
   "author": "",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.13"
+  },
   "dependencies": {
     "ethers": "^6.13.0"
   },

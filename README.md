@@ -27,6 +27,10 @@ src/
                             cited to an IRS source (see below)
   payroll/payrollRun.js    - orchestrates a batch: consent check -> payroll
                             math -> record to the ledger
+  payroll/storedPayrollRun.js - runs a pay period from the data layer and
+                            saves the results (see "Payroll records")
+  data/payrollStore.js     - SQLite records: employees, pay periods,
+                            timesheets, FICA wages, payroll results
   chain/contracts.js       - the only file that talks to the blockchain
                             (ConsentRegistry + ReconciliationLedger)
   remittance/instructions.js - the remittance file payroll sends the custodian
@@ -109,6 +113,53 @@ figure, so a typo fails CI.
 - **Adding a year:** copy the figures from that year's IRS cost-of-living
   notice into the table with citations, and pin them in the test.
 
+## Payroll records
+
+`src/data/payrollStore.js` keeps payroll's records in SQLite, using
+Node's built-in `node:sqlite` (Node 22.13+), so there's no extra
+dependency. `runStoredPayroll(store, payPeriodId, options)` runs a period
+from those records and saves every outcome.
+
+```js
+const { openPayrollStore } = require("./src/data/payrollStore");
+const { runStoredPayroll, remittanceInstructionsForPeriod } = require("./src/payroll/storedPayrollRun");
+const { toRemittanceCsv } = require("./src/remittance/instructions");
+
+const store = openPayrollStore("payroll.db"); // or ":memory:"
+store.upsertEmployee({ id: "emp-001", payType: "salary", annualSalaryCents: 104_000_00,
+                       payPeriodsPerYear: 26, deferralElectionPct: 5, consentAttestationId: "0x..." });
+store.createPayPeriod({ id: "2026-P01", periodStart: "2025-12-22", periodEnd: "2026-01-04", payDate: "2026-01-09" });
+await runStoredPayroll(store, "2026-P01", { chainClient, employeeIdKey, plan: { allowsCatchUp: true } });
+const csv = toRemittanceCsv(remittanceInstructionsForPeriod(store, "2026-P01"));
+```
+
+What the records settle, so callers no longer pass them in:
+
+- **Year-to-date deferrals** are summed from paid results in the pay
+  date's tax year, so the IRS limit check always uses what was actually
+  deferred.
+- **The tax year comes from the pay date.** A period from Dec 22 to Jan 4
+  paid Jan 9 counts in the new year, as the IRS counts it.
+- **Hours are per employee.** An hourly employee with no timesheet is
+  flagged as an error, never paid $0.
+- **Nobody is paid twice for a period.** A paid result is final (the
+  database refuses to overwrite it, and hours can't change after it).
+  Re-running a period skips paid employees and retries the skipped or
+  failed ones.
+- **Prior-year FICA wages** (for the Roth catch-up rule) are recorded per
+  year with `setFicaWages`. If none are on file the answer is "unknown",
+  not zero.
+- **The remittance file can be rebuilt** from saved results at any time.
+
+No names, SSNs, addresses or bank details are stored (a test checks the
+schema). Those belong in the wallet-gated store Tenet 1 describes. Birth
+year is kept only because the IRS catch-up test needs it.
+
+Known gap: the ledger write happens before the result is saved. If the
+process dies between the two, the retry's ledger write is refused
+("already recorded"), and that employee shows as an error for a person to
+resolve. They are never paid twice.
+
 ## What's still a placeholder
 
 **Tax withholding** is a flat 12% federal / 5% state rate. Real
@@ -179,8 +230,9 @@ The browser demo uses the same scheme with a public, demo-only key.
 
 ## What's not here yet
 
-This is a first slice, not the whole system. Not yet built: a real HRIS
-data layer/database, deployment to any real public testnet (see
+This is a first slice, not the whole system. Not yet built: the
+wallet-gated store for employee PII (the payroll records above hold none),
+deployment to any real public testnet (see
 `newco-contracts/docs/DEPLOYING_TO_TESTNET.md` for exactly what that
 needs), a production frontend (the demo above is a dev proof, not a
 product UI), real tax withholding (see above), and the regulatory RAG
