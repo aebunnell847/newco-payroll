@@ -111,6 +111,7 @@ function computeTaxWithholdingCents({
     form: stateW4,
     federalW4: w4,
     payDate,
+    federalWithholdingCents: federal.federalCents,
   });
 
   return {

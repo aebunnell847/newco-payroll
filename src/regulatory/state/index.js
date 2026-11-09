@@ -21,6 +21,8 @@
 //   "none"                     - no state income tax (see noIncomeTax.js)
 
 const MODULES = [
+  require("./al"),
+  require("./ar"),
   require("./az"),
   require("./ca"),
   require("./co"),
@@ -29,13 +31,16 @@ const MODULES = [
   require("./id"),
   require("./il"),
   require("./in"),
+  require("./ks"),
   require("./ky"),
   require("./la"),
   require("./mi"),
   require("./mo"),
   require("./ms"),
+  require("./mt"),
   require("./nc"),
   require("./nd"),
+  require("./ne"),
   require("./nj"),
   require("./ny"),
   require("./ok"),
@@ -43,6 +48,7 @@ const MODULES = [
   require("./sc"),
   require("./ut"),
   require("./va"),
+  require("./wi"),
   ...require("./noIncomeTax"),
 ];
 const BY_CODE = Object.freeze(Object.fromEntries(MODULES.map((m) => [m.code, m])));
@@ -75,6 +81,8 @@ function validateStateForm(code, form) {
  *                                (DE 4, IL-W-4, IT-2104, ...) or null if none on file
  *   federalW4                  - the federal W-4, for states whose no-certificate
  *                                default refers to it (NY, for 2019-or-earlier forms)
+ *   federalWithholdingCents    - this period's federal income tax withheld, for
+ *                                states that deduct it (AL)
  *   payDate                    - "YYYY-MM-DD"; needed by states whose figures
  *                                changed mid-year (GA, ID in 2026)
  *
@@ -90,6 +98,7 @@ function computeStateWithholdingCents({
   form = null,
   federalW4 = null,
   payDate = null,
+  federalWithholdingCents = null,
 }) {
   if (typeof state !== "string" || !state) {
     throw new Error("no work state on file; state withholding needs employee.workState (e.g. \"CA\")");
@@ -97,7 +106,7 @@ function computeStateWithholdingCents({
   const m = getStateModule(state, taxYear);
   const wagesCents =
     m.wageBasis === "gross" ? grossPayCents : m.wageBasis === "none" ? 0 : federalTaxableWagesCents;
-  const out = m.compute({ taxYear, wagesCents, payPeriodsPerYear, form, federalW4, payDate });
+  const out = m.compute({ taxYear, wagesCents, payPeriodsPerYear, form, federalW4, payDate, federalWithholdingCents });
   const localities = out.localities || {};
   const localCents = Object.values(localities).reduce((a, b) => a + b, 0);
   return { state: m.code, wageBasis: m.wageBasis, wagesCents, ...out, localities, localCents };
