@@ -27,7 +27,7 @@ const { validateStateForm } = require("../regulatory/state");
 
 // Bump when the schema changes. An existing file at an older version is
 // refused rather than silently used with missing columns.
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 const SCHEMA = `
 PRAGMA foreign_keys = ON;
@@ -95,6 +95,8 @@ CREATE TABLE IF NOT EXISTS payroll_results (
   medicare_cents          INTEGER,
   additional_medicare_cents INTEGER,
   state_withholding_cents INTEGER,
+  -- City/local taxes by locality, e.g. {"NYC": 611}, kept apart for the W-2.
+  local_withholding_json  TEXT,
   deferral_requested_cents INTEGER,
   deferral_cents          INTEGER,
   catch_up_portion_cents  INTEGER,
@@ -166,6 +168,7 @@ function rowToResult(row) {
     socialSecurityCents: row.social_security_cents,
     medicareCents: row.medicare_cents,
     additionalMedicareCents: row.additional_medicare_cents,
+    localWithholding: row.local_withholding_json ? JSON.parse(row.local_withholding_json) : null,
     stateWithholdingCents: row.state_withholding_cents,
     deferralRequestedCents: row.deferral_requested_cents,
     deferralCents: row.deferral_cents,
@@ -418,9 +421,9 @@ function openPayrollStore(path = ":memory:") {
         `INSERT INTO payroll_results (
            employee_id, pay_period_id, tax_year, outcome, gross_pay_cents, federal_withholding_cents,
            social_security_cents, medicare_cents, additional_medicare_cents,
-           state_withholding_cents, deferral_requested_cents, deferral_cents, catch_up_portion_cents,
+           state_withholding_cents, local_withholding_json, deferral_requested_cents, deferral_cents, catch_up_portion_cents,
            roth_catch_up_required, net_pay_cents, ledger_employee_id, ledger_pay_period_id, withheld_at, reason)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(employee_id, pay_period_id) DO UPDATE SET
            outcome = excluded.outcome, gross_pay_cents = excluded.gross_pay_cents,
            federal_withholding_cents = excluded.federal_withholding_cents,
@@ -428,6 +431,7 @@ function openPayrollStore(path = ":memory:") {
            medicare_cents = excluded.medicare_cents,
            additional_medicare_cents = excluded.additional_medicare_cents,
            state_withholding_cents = excluded.state_withholding_cents,
+           local_withholding_json = excluded.local_withholding_json,
            deferral_requested_cents = excluded.deferral_requested_cents,
            deferral_cents = excluded.deferral_cents, catch_up_portion_cents = excluded.catch_up_portion_cents,
            roth_catch_up_required = excluded.roth_catch_up_required, net_pay_cents = excluded.net_pay_cents,
@@ -454,6 +458,7 @@ function openPayrollStore(path = ":memory:") {
             r?.taxWithholding.medicareCents ?? null,
             r?.taxWithholding.additionalMedicareCents ?? null,
             r?.taxWithholding.stateCents ?? null,
+            r ? JSON.stringify(r.taxWithholding.localities ?? {}) : null,
             d?.requestedCents ?? null,
             d?.actualCents ?? null,
             d?.catchUpPortionCents ?? null,

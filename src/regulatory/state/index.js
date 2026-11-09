@@ -5,8 +5,11 @@
 // this file picks the right one and hands it the right wages.
 //
 // Withholding follows the employee's WORK state (employee.workState).
-// Resident-state credits, reciprocity agreements between states, and local
-// income taxes are not modeled yet.
+// Local taxes are included where the state's own certificate carries them
+// (New York City and Yonkers residency on NY's IT-2104) and returned
+// separately as `localities`, since they're reported separately on the W-2.
+// Resident-state credits, reciprocity agreements between states, and other
+// local taxes are not modeled yet.
 //
 // A state or year with no sourced method throws, the same as the federal
 // tables: payroll never falls back to a guessed rate.
@@ -16,7 +19,7 @@
 //   "gross"                    - 401(k) deferrals are taxed (PA)
 //   "none"                     - no state income tax (TX, FL, WA)
 
-const MODULES = [require("./ca"), require("./il"), require("./pa"), ...require("./noIncomeTax")];
+const MODULES = [require("./ca"), require("./il"), require("./ny"), require("./pa"), ...require("./noIncomeTax")];
 const BY_CODE = Object.freeze(Object.fromEntries(MODULES.map((m) => [m.code, m])));
 
 function getStateModule(code, taxYear) {
@@ -44,7 +47,12 @@ function validateStateForm(code, form) {
  *   federalTaxableWagesCents   - gross minus pre-tax deferrals
  *   payPeriodsPerYear, taxYear
  *   form                       - the state's withholding certificate
- *                                (DE 4, IL-W-4, ...) or null if none on file
+ *                                (DE 4, IL-W-4, IT-2104, ...) or null if none on file
+ *   federalW4                  - the federal W-4, for states whose no-certificate
+ *                                default refers to it (NY, for 2019-or-earlier forms)
+ *
+ * Returns stateCents (the state's own tax) and localities / localCents
+ * (city taxes the state certificate covers), kept apart for W-2 reporting.
  */
 function computeStateWithholdingCents({
   state,
@@ -53,6 +61,7 @@ function computeStateWithholdingCents({
   federalTaxableWagesCents,
   payPeriodsPerYear,
   form = null,
+  federalW4 = null,
 }) {
   if (typeof state !== "string" || !state) {
     throw new Error("no work state on file; state withholding needs employee.workState (e.g. \"CA\")");
@@ -60,8 +69,10 @@ function computeStateWithholdingCents({
   const m = getStateModule(state, taxYear);
   const wagesCents =
     m.wageBasis === "gross" ? grossPayCents : m.wageBasis === "none" ? 0 : federalTaxableWagesCents;
-  const out = m.compute({ taxYear, wagesCents, payPeriodsPerYear, form });
-  return { state: m.code, wageBasis: m.wageBasis, wagesCents, ...out };
+  const out = m.compute({ taxYear, wagesCents, payPeriodsPerYear, form, federalW4 });
+  const localities = out.localities || {};
+  const localCents = Object.values(localities).reduce((a, b) => a + b, 0);
+  return { state: m.code, wageBasis: m.wageBasis, wagesCents, ...out, localities, localCents };
 }
 
 module.exports = {
