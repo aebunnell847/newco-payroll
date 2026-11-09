@@ -364,9 +364,16 @@ const TABLES = Object.freeze({
     noCertificateTable: "330",
     sources: Object.freeze([
       "Comptroller of Maryland, Maryland Income Tax Rates and Brackets (2026 local rates and percentage-method links): https://services.marylandcomptroller.gov/taxes/en/maryland-income-tax-rates-and-brackets?id=kb_article_view&sysparm_article=KB0010014",
-      ...["225", "240", "265", "275", "300", "305", "310", "320", "330"].map(
-        (r) => `Comptroller of Maryland, 2026 percentage method, ${r.slice(0, 1)}.${r.slice(1)}% local: https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/instructions/withholding/2026/pm${r}.pdf`
-      ),
+      // Written out (not built from a template) so source monitoring sees every URL.
+      "Comptroller of Maryland, 2026 percentage method, 2.25% local: https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/instructions/withholding/2026/pm225.pdf",
+      "Comptroller of Maryland, 2026 percentage method, 2.40% local: https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/instructions/withholding/2026/pm240.pdf",
+      "Comptroller of Maryland, 2026 percentage method, 2.65% local: https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/instructions/withholding/2026/pm265.pdf",
+      "Comptroller of Maryland, 2026 percentage method, 2.75% local: https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/instructions/withholding/2026/pm275.pdf",
+      "Comptroller of Maryland, 2026 percentage method, 3.00% local: https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/instructions/withholding/2026/pm300.pdf",
+      "Comptroller of Maryland, 2026 percentage method, 3.05% local: https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/instructions/withholding/2026/pm305.pdf",
+      "Comptroller of Maryland, 2026 percentage method, 3.10% local: https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/instructions/withholding/2026/pm310.pdf",
+      "Comptroller of Maryland, 2026 percentage method, 3.20% local: https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/instructions/withholding/2026/pm320.pdf",
+      "Comptroller of Maryland, 2026 percentage method, 3.30% local: https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/instructions/withholding/2026/pm330.pdf",
     ]),
   }),
 });
