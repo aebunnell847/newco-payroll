@@ -32,9 +32,10 @@ PERIODS = {
     "DAILY or MISCELLANEOUS": "daily",
 }
 HEAD = re.compile(r"Table (\d): (DAILY or MISCELLANEOUS|SEMI-MONTHLY|SEMI-ANNUAL|BI-WEEKLY|QUARTERLY|MONTHLY|ANNUAL|WEEKLY) Payroll Period")
-# One table row: "$over  ($upper | and above)  $base  [+(rate% of the excess over $over)]"
+# One table row: "$over  ($upper | and above)  $base  [+(rate% of the excess over $over)]".
+# Some 2025 rows print the base as "0" (no cents) or with a doubled "$ $".
 ROW = re.compile(
-    r"\$\s*([\d,]+)\s+(?:\$\s*[\d,]+|and\s+above)\s+\$\s*([\d,]+\.\d\d)\s*(?:\+\(\s*(\d+\.\d+)%\s+of the excess over \$\s*([\d,]+))?"
+    r"\$\s*([\d,]+)\s+(\$\s*[\d,]+|and\s+above)\s*\$\s*(?:\$\s*)?([\d,]+(?:\.\d\d)?)\s*(?:\+\(\s*(\d+\.\d+)%\s+of\s+the\s+excess\s+over\s+\$\s*([\d,]+))?"
 )
 
 
@@ -44,9 +45,11 @@ def cents(s):
     return int(whole) * 100 + int((frac + "00")[:2])
 
 
+corrections = []
 tables = {}
 period = None
 in_percentage_section = False
+done = False
 for line in text.splitlines():
     if "Tables for Percentage Method of Withholding" in line:
         in_percentage_section = True
@@ -60,22 +63,33 @@ for line in text.splitlines():
     rows = ROW.findall(line)
     if len(rows) != 2:
         continue
-    for status, (over, base, rate, excess_over) in zip(("single", "married"), rows):
+    last = False
+    for status, (over, upper, base, rate, excess_over) in zip(("single", "married"), rows):
         over_c = cents(over)
-        if rate:
-            assert cents(excess_over) == over_c, (period, status, line)
+        if rate and cents(excess_over) != over_c:
+            # 2025's daily married column prints "Over $50 ... of the excess over
+            # $49" (and $58/$57, $69/$68, $79/$78): the formula's own "excess
+            # over" figure is the bracket edge, so use it and report the fix.
+            assert over_c - cents(excess_over) == 100, (period, status, line)
+            corrections.append((period, status, over, excess_over))
+            over_c = cents(excess_over)
         tables[period][status].append([over_c, cents(base), int(round(float(rate or 0) * 100))])
-    # The Wage Bracket tables that follow the percentage tables have different rows;
-    # stop once all eight percentage tables are complete.
-    if len(tables) == 8 and all(len(t["married"]) == 4 for t in tables.values()):
+        last = last or upper.startswith("and")
+    # Each table ends at its "and above" row; the wage-bracket tables follow
+    # the last (daily) one.
+    if last and len(tables) == 8:
         break
 
+for c in corrections:
+    print("corrected edge (printed over, excess over):", c, file=sys.stderr)
+
 assert sorted(tables) == sorted(PERIODS.values()), sorted(tables)
+ladder = [r[2] for r in tables["weekly"]["single"]]
+assert ladder[0] == 0 and all(a < b for a, b in zip(ladder, ladder[1:])), ladder
 for p, by_status in tables.items():
     for s, rows in by_status.items():
-        assert len(rows) == 4, (p, s, rows)
         assert rows[0][:3] == [0, 0, 0], (p, s, rows[0])
-        assert [r[2] for r in rows] == [0, 250, 350, 450], (p, s, rows)
-        assert all(rows[i][0] < rows[i + 1][0] for i in range(3)), (p, s)
+        assert [r[2] for r in rows] == ladder, (p, s, rows)
+        assert all(rows[i][0] < rows[i + 1][0] for i in range(len(rows) - 1)), (p, s)
 
 print(json.dumps(tables, indent=1))

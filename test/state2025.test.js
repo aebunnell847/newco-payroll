@@ -5,6 +5,7 @@
 const { expect } = require("chai");
 const { computeStateWithholdingCents } = require("../src/regulatory/state");
 const al = require("../src/regulatory/state/al");
+const ar = require("../src/regulatory/state/ar");
 const az = require("../src/regulatory/state/az");
 const ia = require("../src/regulatory/state/ia");
 const ky = require("../src/regulatory/state/ky");
@@ -15,15 +16,22 @@ const mo = require("../src/regulatory/state/mo");
 const ms = require("../src/regulatory/state/ms");
 const nc = require("../src/regulatory/state/nc");
 const nd = require("../src/regulatory/state/nd");
+const ne = require("../src/regulatory/state/ne");
+const nm = require("../src/regulatory/state/nm");
+const ok = require("../src/regulatory/state/ok");
+const mt = require("../src/regulatory/state/mt");
 const or = require("../src/regulatory/state/or");
+const ri = require("../src/regulatory/state/ri");
 const sc = require("../src/regulatory/state/sc");
+const vt = require("../src/regulatory/state/vt");
 const wi = require("../src/regulatory/state/wi");
+const wv = require("../src/regulatory/state/wv");
 
-// Each row's base follows from the row below it (to the cent).
-const chain = (rows) => {
-  for (let i = 2; i < rows.length; i++) {
+// Each row's base follows from the row below it (to the cent, or tolCents).
+const chain = (rows, tolCents = 1) => {
+  for (let i = 1; i < rows.length; i++) {
     const [o0, b0, r0] = rows[i - 1];
-    expect(Math.abs(b0 + ((rows[i][0] - o0) * r0) / 10_000 - rows[i][1]), `row ${i}`).to.be.at.most(1);
+    expect(Math.abs(b0 + ((rows[i][0] - o0) * r0) / 10_000 - rows[i][1]), `row ${i}`).to.be.at.most(tolCents);
   }
 };
 
@@ -185,6 +193,106 @@ describe("2025: Maine (2025 withholding tables, percentage method)", () => {
   it("no 2% surcharge before 2026", () => {
     const r = at(me, 50_000_00, 52, { filingStatus: "single", allowances: 0 });
     expect(r.lines.annualTaxCents).to.be.closeTo(4_028_00 + (r.lines.incomeCents - 63_450_00) * 0.0715, 1);
+  });
+});
+
+describe("2025: Arkansas (formula method effective 01/01/2025)", () => {
+  it("formula example: Gary, $2,127 monthly, 2 exemptions -> $37.33", () => {
+    const r = at(ar, 2_127_00, 12, { exemptions: 2 });
+    expect(r.lines.incomeCents).to.equal(23_150_00);
+    expect(r.lines.grossTaxCents).to.equal(506_00);
+    expect(r.stateCents).to.equal(37_33);
+  });
+  it("keeps the intentional $200-wide $94,301-$94,500 row", () => {
+    const b = ar.TABLES[2025].brackets.map((r) => r[0]);
+    expect(b).to.include(94_301_00);
+    expect(b).to.not.include(94_401_00);
+    expect(b).to.include(94_501_00);
+  });
+});
+
+describe("2025: Vermont (GB-1210-2025)", () => {
+  it("guide example: $1,800 weekly, married, 2 allowances -> $46.07", () =>
+    expect(at(vt, 1_800_00, 52, { filingStatus: "married", allowances: 2 }).stateCents).to.equal(46_07));
+  it("every bracket base follows from the bracket below", () => {
+    for (const t of Object.values(vt.TABLES[2025].percentageTables)) {
+      chain(t.single);
+      chain(t.married);
+    }
+  });
+});
+
+describe("2025: Nebraska (2025 Circular EN)", () => {
+  it("allowance values are $2,360 / periods (daily / 260)", () => {
+    const n = { daily: 260, weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12, quarterly: 4, semiannual: 2, annual: 1 };
+    for (const [p, v] of Object.entries(ne.TABLES[2025].allowanceCents)) expect(v, p).to.equal(Math.round(2_360_00 / n[p]));
+  });
+  it("each table's bases follow from the bracket below (within a cent)", () => {
+    for (const byStatus of Object.values(ne.TABLES[2025].percentageTables)) for (const rows of Object.values(byStatus)) chain(rows);
+  });
+  it("2025 rates top out at 5.37%", () => expect(ne.TABLES[2025].percentageTables.weekly.single.at(-1)[2]).to.equal(537));
+});
+
+describe("2025: Oklahoma (Packet OW-2, Revised 11-2024)", () => {
+  it("packet example: $1,825 semimonthly, married, 2 allowances -> $41.89, rounded to $42", () => {
+    const r = at(ok, 1_825_00, 24, { filingStatus: "married", allowances: 2 });
+    expect(r.lines.netCents).to.equal(1_741_66);
+    expect(r.stateCents).to.equal(42_00);
+  });
+  it("seven brackets up to 4.75% in every table; the corrected daily married edges", () => {
+    for (const by of Object.values(ok.TABLES[2025].percentageTables)) {
+      for (const rows of Object.values(by)) expect(rows.map((r) => r[2])).to.deep.equal([0, 25, 75, 175, 275, 375, 475]);
+    }
+    expect(ok.TABLES[2025].percentageTables.daily.married.map((r) => r[0])).to.deep.equal([0, 49_00, 57_00, 68_00, 78_00, 87_00, 104_00]);
+  });
+});
+
+describe("2025: New Mexico (FYI-104 Rev. 11/2024)", () => {
+  it("has all eight periods, each threshold scaled from the annual $7,500 / $15,000 / $11,250", () => {
+    const t = nm.TABLES[2025].percentageTables;
+    expect(Object.keys(t).sort()).to.deep.equal(["annual", "biweekly", "daily", "monthly", "quarterly", "semiannual", "semimonthly", "weekly"]);
+    expect(t.annual.single[1][0]).to.equal(7_500_00);
+    expect(t.annual.married[1][0]).to.equal(15_000_00);
+    expect(t.annual.headOfHousehold[1][0]).to.equal(11_250_00);
+    expect(t.weekly.single[1][0]).to.equal(144_00);
+  });
+  it("every bracket base follows from the bracket below, within 5 cents (edges are printed rounded to the dollar)", () => {
+    for (const by of Object.values(nm.TABLES[2025].percentageTables)) for (const rows of Object.values(by)) chain(rows, 5);
+  });
+});
+
+describe("2025: Montana (2025 guide: rounded UP, as its examples are)", () => {
+  const ex = (status, wages, n) => at(mt, wages, n, { filingStatus: status }).stateCents / 100;
+  it("single / both-working examples: $36, $131, $9", () =>
+    expect([ex("single", 1_375_00, 24), ex("single", 2_950_00, 26), ex("single", 475_00, 52)]).to.deep.equal([36, 131, 9]));
+  it("married filing jointly examples: $6, $87, and $1 on the $580 the example computes with", () =>
+    expect([ex("marriedJoint", 1_375_00, 24), ex("marriedJoint", 2_950_00, 26), ex("marriedJoint", 580_00, 52)]).to.deep.equal([6, 87, 1]));
+  it("head of household examples: $21, $109, $7 (the $109 line's text says \"$56 +\"; the table's base is $57)", () =>
+    expect([ex("headOfHousehold", 1_375_00, 24), ex("headOfHousehold", 2_950_00, 26), ex("headOfHousehold", 575_00, 52)]).to.deep.equal([21, 109, 7]));
+  it("2026 still rounds to the nearest dollar", () =>
+    expect(mt.compute({ taxYear: 2026, wagesCents: 1_375_00, payPeriodsPerYear: 24, form: { filingStatus: "single" } }).stateCents).to.equal(33_00));
+});
+
+describe("2025: West Virginia (IT-100.2A, October 2024)", () => {
+  it("2.22% to 4.82%; every bracket base follows from the one below", () => {
+    for (const set of Object.values(wv.TABLES[2025].percentageTables)) {
+      for (const rows of Object.values(set)) {
+        expect(rows.map((r) => r[2])).to.deep.equal([222, 296, 333, 444, 482]);
+        chain(rows, 3);
+      }
+    }
+  });
+  it("$1,000 weekly, two-earner, 1 exemption: $961.54 -> $29.63 + 4.82% x $95.54", () =>
+    expect(at(wv, 1_000_00, 52, { exemptions: 1 }).stateCents).to.equal(Math.round(29_63 + (96_154 - 86_600) * 0.0482)));
+});
+
+describe("2025: Rhode Island (2025 withholding tax booklet)", () => {
+  it("booklet example: $2,195 weekly, 1 exemption -> $87.98", () =>
+    expect(at(ri, 2_195_00, 52, { exemptions: 1 }).stateCents).to.equal(87_98));
+  it("reproduces every printed exemption amount and wage cutoff", () => {
+    const e = (n) => ri.exemptionFor(ri.TABLES[2025], n);
+    expect([52, 26, 24, 12, 4, 2, 1, 260].map((n) => e(n).amountCents)).to.deep.equal([19_23, 38_46, 41_67, 83_33, 250_00, 500_00, 1_000_00, 3_85]);
+    expect([52, 26, 24, 12, 260].map((n) => e(n).cutoffCents)).to.deep.equal([5_447_12, 10_894_23, 11_802_08, 23_604_17, 1_089_42]);
   });
 });
 

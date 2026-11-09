@@ -20,12 +20,15 @@ import sys
 from pypdf import PdfReader
 
 sys.stdout.reconfigure(encoding="utf-8")
-pages = [p.extract_text() for p in PdfReader(sys.argv[1]).pages]
+# The October 2024 edition prints hyphens as U+2010 ("IT‐100.2A", "‐$").
+pages = [p.extract_text().replace("‐", "-") for p in PdfReader(sys.argv[1]).pages]
 assert any("IT-100.2A" in p for p in pages)
 
-FIRST = re.compile(r"^-\$\s+([\d,]+)\s+\$\s+(\d+\.\d+)%")
-MID = re.compile(r"^([\d,]+)\$\s+[\d,]+\s+\$\s+([\d,]+\.\d\d)\s+\$\s+plus\s+(\d+\.\d+)%\s+([\d,]+)")
-TOP = re.compile(r"^([\d,]+)\$\s+([\d,]+\.\d\d)\s+\$\s+plus\s+(\d+\.\d+)%\s+([\d,]+)")
+# "$" sits before or after the space depending on the edition ("144 $" in 2026,
+# "144$" in October 2024).
+FIRST = re.compile(r"^-\s*\$\s*([\d,]+)\s*\$\s*(\d+\.\d+)%")
+MID = re.compile(r"^([\d,]+)\s*\$\s*[\d,]+\s*\$\s*([\d,]+\.\d\d)\s*\$\s*plus\s+(\d+\.\d+)%\s+([\d,]+)")
+TOP = re.compile(r"^([\d,]+)\s*\$\s*([\d,]+\.\d\d)\s*\$\s*plus\s+(\d+\.\d+)%\s+([\d,]+)")
 PERIODS = {"weekly": 52, "biweekly": 26, "semimonthly": 24, "monthly": 12, "annual": 1, "daily": 260}
 ANNUAL_FIRST_EDGE = {"twoEarner": 7_500, "oneEarner": 10_000}
 
@@ -65,6 +68,8 @@ for text in pages:
 for tset, by in out.items():
     assert sorted(by) == sorted(PERIODS), (tset, sorted(by))
     for p, rows in by.items():
-        assert [r[2] for r in rows] == [211, 281, 316, 422, 458], (tset, p, rows)
+        # 2026: 2.11 / 2.81 / 3.16 / 4.22 / 4.58%; October 2024: 2.22 / 2.96 / 3.33 / 4.44 / 4.82%.
+        assert [r[2] for r in rows] == [r[2] for r in out["twoEarner"]["weekly"]], (tset, p, rows)
+        assert len(rows) == 5 and all(a < b for a, b in zip([r[2] for r in rows], [r[2] for r in rows][1:])), (tset, p)
 
 print(json.dumps(out))

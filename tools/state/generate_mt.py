@@ -57,9 +57,12 @@ for line in text.splitlines():
         out[status][period].append([cents(frm), cents(base), round(float(rate) * 100)])
 
 assert sorted(out) == ["headOfHousehold", "marriedJoint", "single"], sorted(out)
+# Every table shares one rate ladder (2026: 0 / 4.7% / 5.65%; 2025: 0 / 4.7% / 5.9%).
+ladder = [r[2] for r in out["single"]["monthly"]]
+assert ladder[0] == 0 and all(a < b for a, b in zip(ladder, ladder[1:])), ladder
 for s, by in out.items():
     assert sorted(by) == sorted(PERIOD_NAME.values()), (s, sorted(by))
     for p, rows in by.items():
-        assert [r[2] for r in rows] == [0, 470, 565], (s, p, rows)
+        assert [r[2] for r in rows] == ladder, (s, p, rows)
 
 print(json.dumps(out))

@@ -32,7 +32,8 @@ def cents(s):
     return int(whole) * 100 + int((frac + "00")[:2])
 
 
-ROW = re.compile(r"^\$([\d,]+)\s+(?:\$[\d,]+|and over)\s+(\d+\.\d\d)%\s*(?:\$([\d,]+\.\d\d))?\s*$")
+# "*" marks a range the DFA intentionally extends by $100 (2025's $94,301-$94,500).
+ROW = re.compile(r"^\*?\$([\d,]+)\s+(?:\*?\$[\d,]+|and over)\s+(\d+\.\d\d)%\s*(?:\$([\d,]+\.\d\d))?\s*$")
 rows = []
 for line in text.splitlines():
     m = ROW.match(line.strip())
