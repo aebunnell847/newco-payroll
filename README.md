@@ -250,10 +250,10 @@ with its own sources and tax years.
 | CO | DR 1098 worksheet: 4.40% after an annual allowance; DR 0004 or the federal W-4 | Gross minus pre-tax 401(k) (Wage Withholding Tax Guide) | As a "single" W-4: $5,500 allowance (DR 1098). A pre-2020 W-4 also gets $5,500 (DR 1098 is silent; flagged) | 2026 |
 | CT | TPG-211 calculation rules: Tables A-E by CT-W4 code (generated), no percentage method | Gross minus pre-tax 401(k) (Circular CT) | 6.99% flat, no exemption (Circular CT) | 2025, 2026 |
 | DE | Employer's Guide annualized formula: $3,250 / $6,500 deduction, 0%-6.6%, $110 per exemption credit | Gross minus pre-tax 401(k) | Single, no allowances (Guide 15(a)); a pre-2020 federal W-4's allowances if on file | 2025, 2026 |
-| GA | 2026 Guide percentage method: 4.99% after Table F standard deduction and $5,000 per allowance; G-4 | Gross minus pre-tax 401(k) (Guide, O.C.G.A. 48-7-27) | Single, zero allowances (the Guide also allows using the federal election; flagged) | 2026, pay dates from May 11 (rate cut) |
+| GA | 2026 Guide percentage method: 4.99% after Table F standard deduction and $5,000 per allowance; G-4 | Gross minus pre-tax 401(k) (Guide, O.C.G.A. 48-7-27) | Single, zero allowances (the Guide also allows using the federal election; flagged) | 2026 (5.19%, $12,000 / $24,000, $4,000 before May 11) |
 | HI | Booklet A annualized method: $1,144 per allowance + $4,350 extra, 1.4%-7.9% | Gross minus pre-tax 401(k) (HRS 235-61) | Single, no allowances (Booklet A) | 2026 |
 | IA | 2026 formula T1-T4: 3.80% after a per-period deduction, minus allowance $ / periods; IA W-4 (2024+ and 2023-or-earlier forms) | Gross minus pre-tax 401(k) (formula, Step 1) | Column A, no allowances | 2026 |
-| ID | EPB00744 percentage table: 5.3% over $16,100 / $32,200 a year, rounded to the dollar; ID W-4 status A/B/C | Gross minus pre-tax 401(k) | Single chart (unstated by Idaho; flagged) | 2026, pay dates from Jul. 23 (revised tables) |
+| ID | EPB00744 percentage table: 5.3% over $16,100 / $32,200 a year, rounded to the dollar; ID W-4 status A/B/C | Gross minus pre-tax 401(k) | Single chart (unstated by Idaho; flagged) | 2026 ($15,000 / $30,000 and child tax credit allowances before Jul. 23) |
 | IL | IL-700-T automated method, IL-W-4 | Gross minus pre-tax 401(k) (86 Ill. Adm. Code 100.7010) | No exemptions (IL-W-4) | 2025, 2026 |
 | IN | Departmental Notice #1: 2.95% state **plus county tax** (92 counties) after Table A-C deduction constants; WH-4 | Gross minus pre-tax 401(k) (IC 6-3-1-3.5) | State tax with no exemptions and **no county tax** (county unknown without a WH-4; flagged) | 2026 |
 | KS | Percentage tables (generated, 8 periods) after $9,160 / $18,320 + $2,320 exemptions / periods; K-4 | Gross minus pre-tax 401(k) (KW-100) | Single, no allowances (KW-100) | 2025, 2026 |
@@ -273,13 +273,13 @@ with its own sources and tax years.
 | NJ | Rate Tables A-E per payroll period, NJ-W4 (A for single/separate, B for joint/HoH/widow(er), or the table chosen on line 3) | Gross minus 401(k) up to the federal limit (NJ-WT) | Rate A, 0 allowances (current NJ-WT is silent; this is the higher-withholding choice) | 2025, 2026 |
 | NM | FYI-104 percentage tables (generated; single / married / HoH, no allowances); federal W-4 status | Gross minus pre-tax 401(k) | Single (unstated; flagged) | 2026 |
 | NY | NYS-50-T Method II per pay frequency, Method III top rates, IT-2104; **plus NYC resident tax and Yonkers resident surcharge** | Gross minus pre-tax 401(k) (NYS-50) | Single, 0 allowances; a pre-2020 federal W-4's allowances if that's what's on file (NYS-50); no city tax | 2026 |
-| OH | Percentage Method effective Aug. 1, 2026: $650 / periods per exemption, 1.6% / 2.99% / 3.4%; IT 4 | Gross minus pre-tax 401(k) | Zero exemptions (unstated; flagged) | 2026, pay dates from Aug. 1 |
+| OH | Percentage Method effective Aug. 1, 2026: $650 / periods per exemption, 1.6% / 2.99% / 3.4%; IT 4 | Gross minus pre-tax 401(k) | Zero exemptions (unstated; flagged) | 2026 (Oct. 2025 tables, 1.775% / 2.99% / 3.64%, before Aug. 1) |
 | OK | OW-2 percentage tables (generated, 8 periods) after $1,000 per allowance / periods, rounded to the dollar; OK-W-4 | Gross minus pre-tax 401(k) | Single, no allowances (OAC 710:90-3-3) | 2026 |
 | OR | 150-206-436 formula: wages - federal tax withheld (capped, phased) - standard deduction, 4.75%-9.9%, $263 per allowance; OR-W-4 | Gross minus pre-tax 401(k) (FAQ 6) | 8% of wages (HB 2119) | 2026 |
 | PA | Flat 3.07% | **Gross; 401(k) deferrals are taxed** (REV-415) | No certificate exists | 2025, 2026 |
 | RI | 2026 percentage method (generated): $1,000 / periods per exemption, $0 above $290,800 / periods; 3.75%-5.99%; RI W-4 | Gross minus pre-tax 401(k) | Zero exemptions (unstated; flagged) | 2026 |
 | SC | WH-1603F: $5,000 per allowance, 10% standard deduction up to $7,500 (with 1+ allowances), 0% / 3% / 6%; SC W-4 | Gross minus pre-tax 401(k) | Zero allowances (WH-1603) | 2026 |
-| UT | Pub 14 schedules: 4.45% less a base allowance phased out at 1.3%, whole dollars; federal W-4 status | Gross minus pre-tax 401(k) (Pub 14: IRC 3401(a)) | Single (no W-4) | 2026, pay dates from Jun. 1 |
+| UT | Pub 14 schedules: 4.45% less a base allowance phased out at 1.3%, whole dollars; federal W-4 status | Gross minus pre-tax 401(k) (Pub 14: IRC 3401(a)) | Single (no W-4) | 2026 (Rev. 4/25 schedules at 4.5% before Jun. 1) |
 | VA | Formula for wages paid after July 1, 2025: $8,750 + $930 / $800 exemptions, 2%-5.75%; VA-4 | Gross minus pre-tax 401(k) (Guide: federal-exempt is VA-exempt) | No exemptions (Guide) | 2026 (deduction sunsets after 2026) |
 | VT | GB-1210-2026 percentage tables (generated), allowance per table; W-4VT | Gross minus pre-tax 401(k) (IRC 3401) | Federal W-4 status (+30% of federal extra), else single (flagged) | 2026 |
 | WI | W-166 alternate method: phased deduction, $400 per exemption, 3.54%-7.65%; WT-4 | Gross minus pre-tax 401(k) | Zero exemptions (W-166), single | 2026 |
@@ -343,11 +343,19 @@ How the figures are checked:
   two more rows, to the dollar.
 - **Indiana's county rates** are generated by
   `tools/state/generate_in_counties.py` from Departmental Notice #1.
-  Boone County changed its rate Oct. 1, 2026, so Boone pay dates before
-  then throw.
-- **Mid-year changes.** Georgia (May 11), Utah (Jun. 1) and Idaho (Jul. 23)
-  changed their figures during 2026. Those states need the pay date and
-  throw for earlier 2026 pay dates instead of guessing.
+  Boone County changed its rate Oct. 1, 2026 (0.017 to 0.0171); earlier
+  pay dates use 0.017 from the Jan. 1 Notice, which shows no other county
+  changed.
+- **Mid-year changes.** Georgia (May 11), Utah (Jun. 1), Idaho (Jul. 23)
+  and Ohio (Aug. 1) changed their figures during 2026. Each keeps the
+  figures it replaced (`TABLES[2026].earlier`) and picks by pay date, so
+  every 2026 pay date works; those states need the pay date. The earlier
+  documents are cited per figure: Georgia's original 2026 Guide, Utah's
+  Pub 14 Rev. 4/25 and Indiana's Jan. 1 Notice from the agencies' own
+  PDFs as archived by the Internet Archive (the agencies now serve only
+  the revisions), Idaho's April 2025 table and Ohio's October 2025 tables
+  from the agencies. `test/earlier2026.test.js` checks each against its
+  own printed tables and worked examples.
 - **New Jersey.** `tools/state/generate_nj.py` generates all 40 tables
   (Rates A-E, 8 payroll periods) from the Division's PDF.
   - It corrects and reports two print defects in that PDF: "$15.000" for

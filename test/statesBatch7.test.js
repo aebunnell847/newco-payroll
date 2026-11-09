@@ -41,7 +41,7 @@ describe("Ohio (Percentage Method, effective August 1, 2026)", () => {
   });
   it("$1,000 weekly, 1 exemption: $987.50 -> $8.02 + 2.99% x $486.54", () =>
     expect(at(oh, 1_000_00, 52, { exemptions: 1 }).stateCents).to.equal(Math.round(8_02 + (98_750 - 50_096) * 0.0299)));
-  it("throws for pay dates before August 1, 2026", () =>
-    expect(() => at(oh, 1_000_00, 52, null, { payDate: "2026-07-31" })).to.throw(/Ohio withholding for pay date/));
+  it("needs a pay date (the October 2025 tables before Aug. 1: test/earlier2026.test.js)", () =>
+    expect(() => at(oh, 1_000_00, 52, null, { payDate: null })).to.throw(/Ohio withholding needs the pay date/));
   it("no IT 4: zero exemptions", () => expect(at(oh, 1_000_00, 52).formBasis).to.equal("none-on-file-zero-exemptions"));
 });

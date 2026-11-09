@@ -12,8 +12,10 @@
 // Employers "must continue to withhold at the rate of 5.19% before the
 // effective date of the change and can begin withholding at the new rate
 // of 4.99%, starting May 11, 2026." So these figures apply to pay dates
-// from 2026-05-11; earlier 2026 pay dates throw (their figures aren't
-// sourced here).
+// from 2026-05-11. Earlier 2026 pay dates use the original 2026 Guide
+// (Dec. 2025): 5.19%, $24,000 joint / $12,000 single and separate, $4,000
+// per dependent - the Department's own PDF, as archived on Jan. 16, 2026
+// (dor.georgia.gov now serves only the revised Guide).
 //
 // Table F per-period amounts are the annual figures divided by the number
 // of periods, with "Daily (misc.)" divided by 365 (e.g. $30,000 -> $82.19).
@@ -36,7 +38,7 @@
 // Contributions must be deducted from gross wages prior to the calculation
 // of taxable income" (Guide, citing O.C.G.A. 48-7-27).
 
-const { formChecker, onFile, requirePayDateFrom, PERIOD_BY_COUNT } = require("./formUtil");
+const { formChecker, onFile, tableInForce, PERIOD_BY_COUNT } = require("./formUtil");
 
 const DIVISOR = Object.freeze({
   weekly: 52,
@@ -52,6 +54,19 @@ const DIVISOR = Object.freeze({
 const TABLES = Object.freeze({
   2026: Object.freeze({
     effectiveFrom: "2026-05-11",
+    earlier: Object.freeze([
+      Object.freeze({
+        effectiveFrom: "2026-01-01",
+        rateBp: 519,
+        annualStandardDeductionCents: Object.freeze({ joint: 24_000_00, single: 12_000_00, separate: 12_000_00 }),
+        annualAllowanceCents: 4_000_00,
+        sources: Object.freeze([
+          "GA DOR, Employer's Tax Guide 2026 (original, Dec. 2025; 'Employers must withhold at the rate of 5.19%'): https://dor.georgia.gov/document/document/2026-employers-tax-guide/download",
+          "  as archived Jan. 16, 2026: https://web.archive.org/web/20260116155245/https://dor.georgia.gov/document/document/2026-employers-tax-guide/download",
+          "GA DOR, Employer's Tax Guide 2026 (updated June 2026): 'Employers must continue to withhold at the rate of 5.19% before the effective date of the change': https://dor.georgia.gov/document/document/2026-employers-tax-guide-updated-june-2026/download",
+        ]),
+      }),
+    ]),
     rateBp: 499,
     annualStandardDeductionCents: Object.freeze({ joint: 30_000_00, single: 15_000_00, separate: 15_000_00 }),
     annualAllowanceCents: 5_000_00,
@@ -76,8 +91,7 @@ function validateForm(form) {
 }
 
 function compute({ taxYear, wagesCents, payPeriodsPerYear, form, payDate }) {
-  const t = TABLES[taxYear];
-  requirePayDateFrom(payDate, t.effectiveFrom, "Georgia");
+  const t = tableInForce(TABLES[taxYear], payDate, "Georgia");
   validateForm(form);
   const period = PERIOD_BY_COUNT[payPeriodsPerYear];
   if (!period) throw new Error(`Georgia Table F has no column for ${payPeriodsPerYear} pay periods a year`);
