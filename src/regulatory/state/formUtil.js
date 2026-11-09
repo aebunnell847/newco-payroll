@@ -35,4 +35,29 @@ function formChecker(formName) {
 
 const onFile = (form) => form !== null && form !== undefined;
 
-module.exports = { formChecker, onFile };
+/**
+ * For a state whose figures changed mid-year: throw unless the pay date is
+ * on or after the date this code's figures took effect. Earlier pay dates
+ * need the earlier figures, which aren't sourced here - never a guess.
+ */
+function requirePayDateFrom(payDate, effectiveFrom, stateName) {
+  if (typeof payDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(payDate)) {
+    throw new Error(`${stateName} withholding needs the pay date ("YYYY-MM-DD"): its figures changed on ${effectiveFrom}`);
+  }
+  if (payDate < effectiveFrom) {
+    throw new Error(`no sourced ${stateName} withholding for pay date ${payDate} (these figures apply from ${effectiveFrom})`);
+  }
+}
+
+const PERIOD_BY_COUNT = Object.freeze({
+  260: "daily",
+  52: "weekly",
+  26: "biweekly",
+  24: "semimonthly",
+  12: "monthly",
+  4: "quarterly",
+  2: "semiannual",
+  1: "annual",
+});
+
+module.exports = { formChecker, onFile, requirePayDateFrom, PERIOD_BY_COUNT };
