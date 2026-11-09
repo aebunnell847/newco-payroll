@@ -57,9 +57,13 @@ component implements).
 
 ## Natural next steps
 
-- Replace the PLACEHOLDER withholding rates in `payrollEngine.js` with
-  real IRS Publication 15-T and state withholding, sourced the same way
-  as `regulatory/irsLimits.js`.
+- Replace the PLACEHOLDER state withholding rate in `payrollEngine.js`
+  with real state methods, sourced and tested the same way as
+  `regulatory/federalWithholding.js` (generate tables from the state's own
+  publication; never hand-type brackets).
+- Add each new tax year to `regulatory/` (401(k) limits, Pub 15-T tables,
+  FICA) when the IRS publishes it - payroll for that year refuses to run
+  until then.
 - Generate `regulatory/irsLimits.js` entries from the regulatory RAG
   system once it exists (same shape, same citations, same tests).
 - A wallet-gated store for employee PII (Tenet 1). `data/payrollStore.js`

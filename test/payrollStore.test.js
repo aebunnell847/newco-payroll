@@ -42,6 +42,7 @@ function seed(store) {
     id: "emp-002",
     payType: "hourly",
     hourlyRateCents: 25_00,
+    payPeriodsPerYear: 26,
     deferralElectionPct: 10,
     consentAttestationId: "att-2",
   });
@@ -98,6 +99,36 @@ describe("payrollStore: records", () => {
     expect(columns).to.include("birth_year"); // sanity: the listing works
     for (const forbidden of ["name", "ssn", "address", "email", "phone", "bank", "account", "dob", "birth_date"]) {
       expect(columns.filter((c) => c.includes(forbidden)), forbidden).to.deep.equal([]);
+    }
+  });
+
+  it("round-trips a Form W-4, and stores none as null", () => {
+    const w4 = { formYear: 2026, filingStatus: "marriedFilingJointly", step2Checkbox: true, step3CreditsCents: 4_000_00 };
+    store.upsertEmployee({ ...store.getEmployee("emp-001"), w4 });
+    expect(store.getEmployee("emp-001").w4).to.deep.equal(w4);
+    expect(store.getEmployee("emp-002").w4).to.equal(null);
+  });
+
+  it("refuses an invalid W-4 before it reaches the database", () => {
+    expect(() =>
+      store.upsertEmployee({ ...store.getEmployee("emp-001"), w4: { formYear: 2026, filingStatus: "married" } })
+    ).to.throw(/Form W-4: filingStatus/);
+  });
+
+  it("refuses to open a database file from an older schema version", () => {
+    const fs = require("node:fs");
+    const os = require("node:os");
+    const path = require("node:path");
+    const { DatabaseSync } = require("node:sqlite");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "newco-payroll-"));
+    const file = path.join(dir, "old.db");
+    try {
+      const old = new DatabaseSync(file);
+      old.exec("CREATE TABLE employees (id TEXT PRIMARY KEY)"); // a v1-era file: user_version 0
+      old.close();
+      expect(() => openPayrollStore(file)).to.throw(/schema version 0, this code needs 2/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 });
@@ -196,9 +227,9 @@ describe("runStoredPayroll", () => {
     store.upsertEmployee({
       id: "emp-004",
       payType: "salary",
-      annualSalaryCents: 260_000_00,
+      annualSalaryCents: 520_000_00, // $20,000 a period
       payPeriodsPerYear: 26,
-      deferralElectionPct: 100,
+      deferralElectionPct: 40, // $8,000 requested
       birthYear: 1970,
     });
     store.setFicaWages("emp-004", 2025, 200_000_00);
@@ -241,6 +272,38 @@ describe("runStoredPayroll", () => {
   it("refuses to change hours after the employee was paid for the period", async () => {
     await runStoredPayroll(store, "2026-P01");
     expect(() => store.setHours("emp-002", "2026-P01", { regularHours: 90 })).to.throw(/already paid/);
+  });
+
+  it("saves federal, Social Security and Medicare separately, using the employee's W-4", async () => {
+    store.upsertEmployee({ ...store.getEmployee("emp-001"), w4: { formYear: 2026, filingStatus: "single" } });
+    await runStoredPayroll(store, "2026-P01");
+    const r = store.getResult("emp-001", "2026-P01");
+    expect(r.federalWithholdingCents).to.equal(49_638); // hand-checked in payrollEngine.test.js
+    expect(r.socialSecurityCents).to.equal(24_800);
+    expect(r.medicareCents).to.equal(5_800);
+    expect(r.additionalMedicareCents).to.equal(0);
+  });
+
+  it("feeds year-to-date FICA wages from saved results, so Social Security stops at the wage base", async () => {
+    store.upsertEmployee({
+      id: "emp-005",
+      payType: "salary",
+      annualSalaryCents: 2_600_000_00, // $100,000 a period
+      payPeriodsPerYear: 26,
+    });
+    store.createPayPeriod({ id: "2026-P02", periodStart: "2026-01-05", periodEnd: "2026-01-18", payDate: "2026-01-23" });
+    store.createPayPeriod({ id: "2026-P03", periodStart: "2026-01-19", periodEnd: "2026-02-01", payDate: "2026-02-06" });
+    for (const id of ["2026-P02", "2026-P03"]) store.setHours("emp-002", id, { regularHours: 80 });
+    for (const id of ["2026-P01", "2026-P02", "2026-P03"]) await runStoredPayroll(store, id);
+
+    const ss = ["2026-P01", "2026-P02", "2026-P03"].map((id) => store.getResult("emp-005", id).socialSecurityCents);
+    // $100,000 + $84,500 of the $184,500 wage base, then nothing.
+    expect(ss).to.deep.equal([6_200_00, 5_239_00, 0]);
+    expect(store.yearToDateFicaWagesCents("emp-005", 2026)).to.equal(300_000_00);
+    // $200,000 paid before the 3rd check, so all of its $100,000 is over the
+    // Additional Medicare threshold: 0.9% x $100,000.
+    expect(store.getResult("emp-005", "2026-P02").additionalMedicareCents).to.equal(0);
+    expect(store.getResult("emp-005", "2026-P03").additionalMedicareCents).to.equal(900_00);
   });
 
   it("persists to a file and reopens with the same records", async () => {

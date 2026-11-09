@@ -15,7 +15,9 @@
 //                          real name or SSN)
 //   payType             - "salary" | "hourly"
 //   annualSalaryCents   - required if payType === "salary"
-//   payPeriodsPerYear   - required if payType === "salary" (e.g. 26 = biweekly)
+//   payPeriodsPerYear   - required for everyone (e.g. 26 = biweekly):
+//                          salary is divided by it, and withholding
+//                          annualizes every paycheck with it
 //   hourlyRateCents     - required if payType === "hourly"
 //   deferralElectionPct - the employee's elected 401(k) deferral, 0-100
 //   birthYear           - optional; decides catch-up eligibility (the IRS
@@ -24,6 +26,10 @@
 //   priorYearFicaWagesCents - optional; prior-year FICA wages from this
 //                          employer, which decide whether catch-up
 //                          contributions must be Roth (IRC 414(v)(7))
+//   w4                  - the employee's Form W-4 elections (see
+//                          regulatory/federalWithholding.js), or null if
+//                          none is on file (IRS default: Single, no
+//                          adjustments)
 
 function createEmployee({
   id,
@@ -34,6 +40,7 @@ function createEmployee({
   deferralElectionPct = 0,
   birthYear,
   priorYearFicaWagesCents,
+  w4 = null,
 }) {
   if (!id) throw new Error("employee requires an id");
   if (payType !== "salary" && payType !== "hourly") {
@@ -49,6 +56,7 @@ function createEmployee({
     deferralElectionPct,
     birthYear,
     priorYearFicaWagesCents,
+    w4,
   };
 }
 

@@ -7,6 +7,9 @@
 //   - hours          -> each hourly employee's own timesheet
 //   - YTD deferrals  -> summed from earlier paid results this tax year
 //   - prior-year FICA wages -> from the fica_wages table (Roth catch-up)
+//   - YTD FICA wages -> summed gross from earlier paid results this year
+//                      (Social Security wage base, Additional Medicare)
+//   - Form W-4       -> the elections on the employee record
 //   - consent        -> the attestation ID on the employee record
 //
 // Re-running a period is safe: employees already paid for it are left out
@@ -60,6 +63,7 @@ async function runStoredPayroll(store, payPeriodId, options = {}) {
     plan,
     consentAttestationFor: (e) => e.consentAttestationId,
     yearToDateDeferralFor: (e) => store.yearToDateDeferralCents(e.id, payPeriod.taxYear),
+    yearToDateFicaWagesFor: (e) => store.yearToDateFicaWagesCents(e.id, payPeriod.taxYear),
     hoursFor: (e) => (e.payType === "hourly" ? store.getHours(e.id, payPeriod.id) : {}),
   });
 

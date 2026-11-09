@@ -52,7 +52,7 @@ describe("runPayrollBatch (no chain client - dry run)", () => {
   });
 
   it("applies the plan's catch-up setting to every employee in the batch", async () => {
-    const over50 = { ...salariedEmployee("emp-001", 100), birthYear: 1971 };
+    const over50 = { ...salariedEmployee("emp-001", 50), birthYear: 1971 };
     const atBaseLimit = () => 24_500_00;
     const payPeriod = { id: "2026-P01", taxYear: 2026 };
 
@@ -63,7 +63,7 @@ describe("runPayrollBatch (no chain client - dry run)", () => {
     });
 
     expect(without.result.contribution401k.actualCents).to.equal(0);
-    expect(withCatchUp.result.contribution401k.actualCents).to.equal(400_000);
+    expect(withCatchUp.result.contribution401k.actualCents).to.equal(200_000);
   });
 
   it("fails an employee, not the batch, when the pay period has no tax year", async () => {

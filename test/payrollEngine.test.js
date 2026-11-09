@@ -43,13 +43,45 @@ describe("computeGrossPayCents", () => {
 });
 
 describe("computeTaxWithholdingCents", () => {
-  it("applies the placeholder flat federal and state rates", () => {
-    const result = computeTaxWithholdingCents(100_000); // $1,000.00 gross
-    const expectedFederal = Math.round(100_000 * PLACEHOLDER_CONFIG.flatFederalWithholdingRate);
-    const expectedState = Math.round(100_000 * PLACEHOLDER_CONFIG.flatStateWithholdingRate);
-    expect(result.federalCents).to.equal(expectedFederal);
-    expect(result.stateCents).to.equal(expectedState);
-    expect(result.totalCents).to.equal(expectedFederal + expectedState);
+  const base = {
+    taxYear: 2026,
+    grossPayCents: 400_000, // $4,000 biweekly
+    payPeriodsPerYear: 26,
+    w4: { formYear: 2026, filingStatus: "single" },
+  };
+
+  it("withholds federal tax on gross minus pre-tax deductions, per Pub 15-T", () => {
+    const w = computeTaxWithholdingCents({ ...base, preTaxDeductionsCents: 20_000 });
+    // ($3,800 x 26 - $8,600) = $90,200 -> $5,800 + 22% x $32,300 = $12,906 / 26
+    expect(w.federalTaxableWagesCents).to.equal(380_000);
+    expect(w.federalCents).to.equal(49_638);
+    expect(w.w4Basis).to.equal("form-2020-or-later");
+  });
+
+  it("takes FICA on gross pay: pre-tax 401(k) deferrals don't reduce it", () => {
+    const w = computeTaxWithholdingCents({ ...base, preTaxDeductionsCents: 20_000 });
+    expect(w.socialSecurityCents).to.equal(24_800); // 6.2% of $4,000
+    expect(w.medicareCents).to.equal(5_800); // 1.45% of $4,000
+    expect(w.additionalMedicareCents).to.equal(0);
+    expect(w.ficaCents).to.equal(30_600);
+  });
+
+  it("still labels state withholding a placeholder", () => {
+    const w = computeTaxWithholdingCents(base);
+    expect(w.stateIsPlaceholder).to.equal(true);
+    expect(w.stateCents).to.equal(Math.round(400_000 * PLACEHOLDER_CONFIG.flatStateWithholdingRate));
+    expect(w.totalCents).to.equal(w.federalCents + w.ficaCents + w.stateCents);
+  });
+
+  it("uses the IRS default (Single, no adjustments) when no W-4 is on file", () => {
+    const none = computeTaxWithholdingCents({ ...base, w4: null });
+    const single = computeTaxWithholdingCents(base);
+    expect(none.federalCents).to.equal(single.federalCents);
+    expect(none.w4Basis).to.equal("none-on-file");
+  });
+
+  it("refuses to annualize without a pay frequency", () => {
+    expect(() => computeTaxWithholdingCents({ ...base, payPeriodsPerYear: undefined })).to.throw(/payPeriodsPerYear/);
   });
 });
 
@@ -153,6 +185,7 @@ describe("runPayrollForEmployee (end-to-end for one employee, one pay period)", 
       annualSalaryCents: 104_000_00,
       payPeriodsPerYear: 26,
       deferralElectionPct: 5,
+      w4: { formYear: 2026, filingStatus: "single" },
     };
     const payPeriod = { id: "2026-P01", taxYear: 2026 };
 
@@ -162,17 +195,96 @@ describe("runPayrollForEmployee (end-to-end for one employee, one pay period)", 
     expect(result.payPeriodId).to.equal("2026-P01");
     expect(result.grossPayCents).to.equal(400_000); // $104,000 / 26 = $4,000.00
 
-    const expectedWithholding = computeTaxWithholdingCents(result.grossPayCents);
-    expect(result.taxWithholding).to.deep.equal(expectedWithholding);
-
     const expectedDeferral = compute401kDeferralCents(result.grossPayCents, employee, 0, { taxYear: 2026 });
     expect(result.contribution401k).to.deep.equal(expectedDeferral);
+
+    const expectedWithholding = computeTaxWithholdingCents({
+      taxYear: 2026,
+      grossPayCents: result.grossPayCents,
+      preTaxDeductionsCents: expectedDeferral.actualCents,
+      payPeriodsPerYear: 26,
+      w4: employee.w4,
+    });
+    expect(result.taxWithholding).to.deep.equal(expectedWithholding);
+
+    // Hand-checked against Pub 15-T Worksheet 1A and Pub 15 (see above):
+    // $4,000 - $496.38 federal - $248 SS - $58 Medicare - $200 state - $200 401(k)
+    expect(result.netPayCents).to.equal(279_762);
 
     // Net pay must always equal gross minus withholding minus the 401(k) deferral -
     // this is the invariant that keeps payroll, taxes, and retirement contributions
     // all reconciling back to one consistent gross figure.
     expect(result.netPayCents).to.equal(
       result.grossPayCents - result.taxWithholding.totalCents - result.contribution401k.actualCents
+    );
+  });
+
+  it("cuts a deferral back so net pay never goes below zero", () => {
+    const employee = {
+      id: "emp-all-in",
+      payType: "salary",
+      annualSalaryCents: 104_000_00,
+      payPeriodsPerYear: 26,
+      deferralElectionPct: 100,
+      w4: { formYear: 2026, filingStatus: "single" },
+    };
+    const result = runPayrollForEmployee(employee, { id: "2026-P01", taxYear: 2026 }, 0);
+    expect(result.contribution401k.requestedCents).to.equal(400_000);
+    expect(result.contribution401k.cappedByNetPay).to.equal(true);
+    expect(result.netPayCents).to.be.at.least(0);
+    expect(result.netPayCents).to.be.below(100); // as close to zero as cents allow
+    // $4,000 - $248 SS - $58 Medicare - $200 state, with federal at $0 at that deferral
+    expect(result.contribution401k.actualCents).to.equal(349_400);
+  });
+
+  it("taxes Roth-required catch-up dollars as wages instead of excluding them", () => {
+    const employee = {
+      id: "emp-roth",
+      payType: "salary",
+      annualSalaryCents: 520_000_00, // $20,000 a period
+      payPeriodsPerYear: 26,
+      deferralElectionPct: 40, // $8,000, all catch-up once at the base limit
+      birthYear: 1970,
+      priorYearFicaWagesCents: 300_000_00,
+      w4: { formYear: 2026, filingStatus: "single" },
+    };
+    const result = runPayrollForEmployee(
+      employee,
+      { id: "2026-P20", taxYear: 2026 },
+      24_500_00,
+      { allowsCatchUp: true },
+      400_000_00
+    );
+    expect(result.contribution401k.catchUpPortionCents).to.equal(800_000);
+    expect(result.contribution401k.rothCatchUpRequired).to.equal(true);
+    expect(result.taxWithholding.federalTaxableWagesCents).to.equal(2_000_000); // nothing excluded
+  });
+
+  it("stops Social Security at the wage base and starts Additional Medicare over $200,000", () => {
+    const employee = {
+      id: "emp-high",
+      payType: "salary",
+      annualSalaryCents: 520_000_00,
+      payPeriodsPerYear: 26,
+      w4: { formYear: 2026, filingStatus: "single" },
+    };
+    // $190,000 already paid this year: past the $184,500 wage base, $10,000 under $200,000.
+    const r = runPayrollForEmployee(employee, { id: "2026-P10", taxYear: 2026 }, 0, {}, 190_000_00);
+    expect(r.taxWithholding.socialSecurityCents).to.equal(0);
+    expect(r.taxWithholding.medicareCents).to.equal(29_000); // 1.45% x $20,000
+    expect(r.taxWithholding.additionalMedicareCents).to.equal(9_000); // 0.9% x $10,000
+  });
+
+  it("flags an employee whose taxes alone would exceed gross pay", () => {
+    const employee = {
+      id: "emp-extra",
+      payType: "salary",
+      annualSalaryCents: 26_000_00, // $1,000 a period
+      payPeriodsPerYear: 26,
+      w4: { formYear: 2026, filingStatus: "single", step4cExtraWithholdingCents: 2_000_00 },
+    };
+    expect(() => runPayrollForEmployee(employee, { id: "2026-P01", taxYear: 2026 }, 0)).to.throw(
+      /exceed gross pay/
     );
   });
 });

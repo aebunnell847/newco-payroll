@@ -283,10 +283,10 @@ document.getElementById("revokeBtn").addEventListener("click", async () => {
 });
 
 function computePayroll(annualSalaryCents, payPeriods, deferralPct) {
-  // Simplified from src/payroll/payrollEngine.js: the withholding rates
-  // are the same PLACEHOLDERS, not real withholding. The demo runs one
-  // period from a zero balance, so it skips the annual IRS limit check
-  // the engine applies (src/regulatory/irsLimits.js).
+  // A simplified stand-in for src/payroll/payrollEngine.js, for the chain
+  // demo only: these flat rates are NOT real withholding. The engine uses
+  // IRS Pub 15-T, FICA and the annual 401(k) limit (src/regulatory/);
+  // this page only needs some deferral amount to put on the ledger.
   const grossPayCents = Math.round(annualSalaryCents / payPeriods);
   const federal = Math.round(grossPayCents * 0.12);
   const state = Math.round(grossPayCents * 0.05);
