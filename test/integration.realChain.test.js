@@ -155,6 +155,10 @@ describe("integration: real deployed contracts on a local chain", function () {
       ethers.solidityPackedKeccak256(["bytes32", "bytes32"], [employeeIdBytes32, payPeriodBytes32])
     );
     expect(storedContribution.amountCents).to.equal(BigInt(outcomes[0].result.contribution401k.actualCents));
+    // The ledger also stores the chain's own timestamp for the write, so
+    // payroll's self-reported withheldAt can be audited against it.
+    expect(storedContribution.recordedAt > 0n).to.equal(true);
+    expect(storedContribution.recordedAt >= storedContribution.withheldAt).to.equal(true);
   });
 
   it("reaches Matched status once the custodian also records a matching remittance on-chain", async function () {
