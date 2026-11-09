@@ -27,6 +27,10 @@ src/
                             math -> record to the ledger
   chain/contracts.js       - the only file that talks to the blockchain
                             (ConsentRegistry + ReconciliationLedger)
+  remittance/instructions.js - the remittance file payroll sends the custodian
+                            (ledger IDs + amounts, CSV); see below
+  custodian/recordRemittances.js - custodian side: records what it actually
+                            received against payroll's ledger IDs, no key
   chain/ledgerIds.js       - derives each employee's on-chain ID with a keyed
                             hash (see "Employee IDs on the public ledger")
   config/index.js          - reads RPC URL / addresses / signer key /
@@ -122,9 +126,24 @@ Without the key, a guessed ID tells you nothing.
   `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
   Any run that writes to the chain refuses to start without a valid
   key; there is deliberately no fallback to a plain hash.
-- **The custodian needs the same ledger IDs** to record remittances.
-  Either share the key with it under the same controls as the signer
-  key, or send it the ledger ID alongside each remittance line.
+- **Payroll is the system of record for employee IDs, and the key never
+  leaves payroll**, even when payroll and the custodian are under the
+  same corporate umbrella. After a run, `buildRemittanceInstructions`
+  turns the outcomes into one line per on-chain contribution
+  (`ledger_employee_id, ledger_pay_period_id, amount_cents, withheld_at`)
+  and `toRemittanceCsv` writes the file. It contains no internal
+  employee IDs or names. The custodian reads it with
+  `parseRemittanceCsv` and records with `recordRemittancesFromInstructions`
+  using its own signing key. That records the amount it **actually
+  received**, never the instructed amount, so a shortfall is flagged
+  `AmountMismatch` for a human instead of being papered over. Crediting
+  the right participant account still goes through the existing private
+  contribution file; this file only links each payment to its ledger
+  entry.
+- **Late deposits:** the ledger stores both the reported time
+  (`withheldAt` / `remittedAt`, which the LateDeposit flag uses) and the
+  chain's own `recordedAt`, so a reported time that doesn't match when
+  the entry actually landed is visible to an auditor.
 - **Don't rotate the key casually:** a new key gives every employee a
   new ledger ID, so records before and after can't be joined without
   the old key.

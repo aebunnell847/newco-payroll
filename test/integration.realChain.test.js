@@ -16,6 +16,8 @@ const { ethers } = require("ethers");
 const { createChainClient, toBytes32Id, CONSENT_REGISTRY_ABI, RECONCILIATION_LEDGER_ABI } = require("../src/chain/contracts");
 const { runPayrollBatch } = require("../src/payroll/payrollRun");
 const { toLedgerEmployeeId } = require("../src/chain/ledgerIds");
+const { buildRemittanceInstructions, toRemittanceCsv, parseRemittanceCsv } = require("../src/remittance/instructions");
+const { recordRemittancesFromInstructions } = require("../src/custodian/recordRemittances");
 
 // Test-only employee-ID key (32 bytes). Never a real deployment value.
 const TEST_EMPLOYEE_ID_KEY = "11".repeat(32);
@@ -177,5 +179,49 @@ describe("integration: real deployed contracts on a local chain", function () {
 
     const status = await chainClient.getReconciliationStatus(employeeIdBytes32, payPeriodBytes32);
     expect(status).to.equal(3n); // Matched
+  });
+
+  it("hands the custodian ledger IDs in a remittance file, and the custodian records against them without the key", async function () {
+    // Payroll side: two employees, both with active consent.
+    const dataCategory = ethers.keccak256(ethers.toUtf8Bytes("PAYROLL_PROCESSING"));
+    const expiry = (await provider.getBlock("latest")).timestamp + 3600;
+    const attestations = {};
+    for (const id of ["emp-remit-A", "emp-remit-B"]) {
+      const receipt = await (await consentRegistry.connect(employeeWallet).grantAccess(payrollDeployer.address, dataCategory, expiry)).wait();
+      attestations[id] = receipt.logs.map((l) => consentRegistry.interface.parseLog(l)).find((e) => e.name === "AccessGranted").args.attestationId;
+    }
+    const employees = ["emp-remit-A", "emp-remit-B"].map((id) => ({
+      id, payType: "salary", annualSalaryCents: 104_000_00, payPeriodsPerYear: 26, deferralElectionPct: 5,
+    }));
+    const outcomes = await runPayrollBatch(employees, { id: "2026-P-remit" }, {
+      chainClient,
+      employeeIdKey: TEST_EMPLOYEE_ID_KEY,
+      consentAttestationFor: (e) => attestations[e.id],
+    });
+
+    const csv = toRemittanceCsv(buildRemittanceInstructions(outcomes));
+    expect(csv).to.not.include("emp-remit-"); // no internal IDs leave payroll
+
+    // Custodian side: parses the file and signs with ITS OWN key. It is
+    // never given TEST_EMPLOYEE_ID_KEY.
+    const custodianClient = createChainClient({
+      rpcUrl: RPC_URL,
+      signerPrivateKey: CUSTODIAN_KEY,
+      consentRegistryAddress: await consentRegistry.getAddress(),
+      reconciliationLedgerAddress: await reconciliationLedger.getAddress(),
+    });
+    const lines = parseRemittanceCsv(csv);
+    const [lineA, lineB] = lines;
+    const received = {
+      [lineA.ledgerEmployeeId]: { amountCents: lineA.amountCents, remittedAt: lineA.withheldAt + 86400 },
+      [lineB.ledgerEmployeeId]: { amountCents: lineB.amountCents - 100, remittedAt: lineB.withheldAt + 86400 }, // $1 short
+    };
+    const results = await recordRemittancesFromInstructions(custodianClient, lines, (l) => received[l.ledgerEmployeeId]);
+    expect(results.every((r) => r.recorded)).to.equal(true);
+
+    // Both sides landed on the same ledger entries; the shortfall is
+    // flagged for a human, not corrected.
+    expect(await chainClient.getReconciliationStatus(lineA.ledgerEmployeeId, lineA.ledgerPayPeriodId)).to.equal(3n); // Matched
+    expect(await chainClient.getReconciliationStatus(lineB.ledgerEmployeeId, lineB.ledgerPayPeriodId)).to.equal(4n); // AmountMismatch
   });
 });
