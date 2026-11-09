@@ -108,6 +108,7 @@ function computeTaxWithholdingCents({
     federalTaxableWagesCents,
     payPeriodsPerYear,
     form: stateW4,
+    federalW4: w4,
   });
 
   return {
@@ -123,7 +124,9 @@ function computeTaxWithholdingCents({
     state: state.state,
     stateWagesCents: state.wagesCents,
     stateFormBasis: state.formBasis,
-    totalCents: federal.federalCents + fica.totalCents + state.stateCents,
+    localities: state.localities,
+    localCents: state.localCents,
+    totalCents: federal.federalCents + fica.totalCents + state.stateCents + state.localCents,
   };
 }
 

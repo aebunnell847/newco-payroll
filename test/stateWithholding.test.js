@@ -19,11 +19,11 @@ const run = (state, wagesCents, payPeriodsPerYear, form, { taxYear = 2026, gross
 
 describe("state withholding: registry", () => {
   it("lists exactly the states with a sourced method", () => {
-    expect(SUPPORTED_STATES).to.deep.equal(["CA", "FL", "IL", "PA", "TX", "WA"]);
+    expect(SUPPORTED_STATES).to.deep.equal(["CA", "FL", "IL", "NY", "PA", "TX", "WA"]);
   });
 
   it("refuses an unsupported state, a missing state, or an unsourced year", () => {
-    expect(() => run("NY", 100_000, 52, null)).to.throw(/no sourced withholding method for state "NY"/);
+    expect(() => run("OR", 100_000, 52, null)).to.throw(/no sourced withholding method for state "OR"/);
     expect(() => run(undefined, 100_000, 52, null)).to.throw(/no work state on file/);
     expect(() => run("CA", 100_000, 52, null, { taxYear: 2025 })).to.throw(/no sourced California withholding for tax year 2025/);
     expect(() => run("WA", 100_000, 52, null, { taxYear: 2028 })).to.throw(/Washington withholding for tax year 2028/);

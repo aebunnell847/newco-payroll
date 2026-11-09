@@ -222,6 +222,7 @@ with its own sources and tax years.
 |---|---|---|---|---|
 | CA | EDD Method B, annual method, DE 4 | Gross minus pre-tax 401(k) (EDD DE 231A) | Single, 0 allowances (DE 44) | 2026 |
 | IL | IL-700-T automated method, IL-W-4 | Gross minus pre-tax 401(k) (86 Ill. Adm. Code 100.7010) | No exemptions (IL-W-4) | 2025, 2026 |
+| NY | NYS-50-T Method II per pay frequency, Method III top rates, IT-2104; **plus NYC resident tax and Yonkers resident surcharge** | Gross minus pre-tax 401(k) (NYS-50) | Single, 0 allowances; a pre-2020 federal W-4's allowances if that's what's on file (NYS-50); no city tax | 2026 |
 | PA | Flat 3.07% | **Gross; 401(k) deferrals are taxed** (REV-415) | No certificate exists | 2025, 2026 |
 | TX, FL, WA | No individual income tax | n/a | n/a | 2025, 2026 |
 
@@ -231,6 +232,22 @@ How the figures are checked:
   the cent. C and D come within 2 cents, because EDD worked those with its
   per-period tables while this uses the annual method EDD allows.
 - **Illinois.** Both years' booklet examples match to the cent.
+- **New York.** `tools/state/generate_ny.py` generates the State, NYC and
+  Yonkers tables from the Tax Department's 2026 booklets.
+  - The generator checks every published allowance (Table A) against
+    Table B + N × Table C.
+  - It confirms the Yonkers tables are identical to the State's, which is
+    why Yonkers is the State amount × 16.75%.
+  - Of the booklets' 24 worked examples, 21 match to the cent. The other 3
+    are within 1 cent, and in each one the booklet's own text is
+    inconsistent (for example, it prints a rate of 0.070 where its table
+    says 0.0707). The test file explains each case.
+
+**City and local taxes** are returned separately as `localities` (e.g.
+`{ NYC: 611 }`) and stored that way (`local_withholding_json`), because the
+W-2 reports them separately. They are included in total withholding.
+NYC and Yonkers residency comes from the IT-2104, so with no IT-2104 on file
+no city tax is withheld.
 
 An employee with **no work state**, or one in a state or year that isn't
 listed, fails for review, never a guessed rate. Washington is listed only
@@ -239,7 +256,10 @@ through 2026, because it has enacted a tax on income over $1M starting in
 
 Not modeled yet:
 - other states;
-- local income taxes (including PA's local earned income tax);
+- other local income taxes, including PA's local earned income tax and the
+  Yonkers *nonresident* earnings tax (0.5% of wages earned in Yonkers);
+- New York pay frequencies other than daily, weekly, biweekly,
+  semimonthly, monthly and annual;
 - reciprocity agreements and resident-state credits.
 
 ## Not modeled yet

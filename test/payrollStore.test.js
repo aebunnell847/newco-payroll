@@ -128,7 +128,7 @@ describe("payrollStore: records", () => {
     expect(() => store.upsertEmployee({ ...emp, workState: "CA", stateW4: { line1Allowances: 1 } })).to.throw(
       /California DE 4/
     );
-    expect(() => store.upsertEmployee({ ...emp, workState: "NY" })).to.throw(/no sourced withholding method/);
+    expect(() => store.upsertEmployee({ ...emp, workState: "OR" })).to.throw(/no sourced withholding method/);
     expect(() => store.upsertEmployee({ ...emp, workState: null, stateW4: { line1Allowances: 1 } })).to.throw(
       /without a workState/
     );
@@ -145,7 +145,7 @@ describe("payrollStore: records", () => {
       const old = new DatabaseSync(file);
       old.exec("CREATE TABLE employees (id TEXT PRIMARY KEY)"); // a v1-era file: user_version 0
       old.close();
-      expect(() => openPayrollStore(file)).to.throw(/schema version 0, this code needs 3/);
+      expect(() => openPayrollStore(file)).to.throw(/schema version 0, this code needs 4/);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
