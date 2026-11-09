@@ -34,12 +34,17 @@ const { toLedgerEmployeeId, parseEmployeeIdKey } = require("../chain/ledgerIds")
  *                             paid this calendar month, for monthly local
  *                             taxes (Denver OPT). Defaults to null; a state
  *                             rule that needs it throws rather than guess.
+ *   yearToDateSupplementalFor - (employee) => supplemental wages already paid
+ *                             this calendar year (federal 37% over $1M)
  *   employeeIdKey          - hex secret (NEWCO_EMPLOYEE_ID_KEY) used to
  *                             derive each employee's on-chain ID; see
  *                             chain/ledgerIds.js. Required whenever
  *                             chainClient is set.
- *   plan                   - { allowsCatchUp?: boolean } plan features;
- *                             catch-up is off unless the plan says so.
+ *   plan                   - { allowsCatchUp?: boolean, supplementalMethod?:
+ *                             "aggregate" | "flat" } plan features; catch-up
+ *                             is off unless the plan says so, and bonuses are
+ *                             aggregated with regular pay unless the plan
+ *                             elects the flat 22% (regulatory/supplemental.js).
  *   hoursFor               - optional (employee) => { regularHours,
  *                             overtimeHours }. When given, each employee's
  *                             own hours replace the pay period's shared
@@ -63,6 +68,7 @@ async function runPayrollBatch(employees, payPeriod, options = {}) {
     yearToDateDeferralFor = () => 0,
     yearToDateFicaWagesFor = () => 0,
     monthToDateFor = () => null,
+    yearToDateSupplementalFor = () => 0,
     employeeIdKey = null,
     plan = {},
     hoursFor = null,
@@ -104,7 +110,8 @@ async function runPayrollBatch(employees, payPeriod, options = {}) {
         yearToDateDeferralCents,
         plan,
         yearToDateFicaWagesFor(employee),
-        monthToDateFor(employee)
+        monthToDateFor(employee),
+        yearToDateSupplementalFor(employee)
       );
 
       let ledgerEntry;

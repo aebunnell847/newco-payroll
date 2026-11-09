@@ -28,7 +28,7 @@ const { reciprocityFor } = require("../regulatory/state/reciprocity");
 
 // Bump when the schema changes. An existing file at an older version is
 // refused rather than silently used with missing columns.
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 const SCHEMA = `
 PRAGMA foreign_keys = ON;
@@ -87,6 +87,15 @@ CREATE TABLE IF NOT EXISTS timesheets (
   PRIMARY KEY (employee_id, pay_period_id)
 );
 
+-- Supplemental pay (bonus, commission, award) for an employee in a pay
+-- period, paid with that period's regular pay.
+CREATE TABLE IF NOT EXISTS supplemental_pay (
+  employee_id    TEXT NOT NULL REFERENCES employees(id),
+  pay_period_id  TEXT NOT NULL REFERENCES pay_periods(id),
+  cents          INTEGER NOT NULL CHECK (cents >= 0),
+  PRIMARY KEY (employee_id, pay_period_id)
+);
+
 -- One row per employee per pay period. outcome = 'paid' rows are final;
 -- 'skipped' and 'error' rows are replaced when the period is retried.
 CREATE TABLE IF NOT EXISTS payroll_results (
@@ -95,6 +104,8 @@ CREATE TABLE IF NOT EXISTS payroll_results (
   tax_year                INTEGER NOT NULL,
   outcome                 TEXT NOT NULL CHECK (outcome IN ('paid', 'skipped', 'error')),
   gross_pay_cents         INTEGER,
+  -- The part of gross pay that was supplemental (bonus, ...), for the federal $1M rule.
+  supplemental_cents      INTEGER,
   federal_withholding_cents INTEGER,
   social_security_cents   INTEGER,
   medicare_cents          INTEGER,
@@ -174,6 +185,7 @@ function rowToResult(row) {
     taxYear: row.tax_year,
     outcome: row.outcome,
     grossPayCents: row.gross_pay_cents,
+    supplementalCents: row.supplemental_cents ?? 0,
     federalWithholdingCents: row.federal_withholding_cents,
     socialSecurityCents: row.social_security_cents,
     medicareCents: row.medicare_cents,
@@ -212,10 +224,19 @@ function openPayrollStore(path = ":memory:") {
       ALTER TABLE payroll_results ADD COLUMN state_code TEXT;
       PRAGMA user_version = 5;
     `);
-  } else if (hasTables && existingVersion !== SCHEMA_VERSION) {
+  }
+  if (hasTables && db.prepare("PRAGMA user_version").get().user_version === 5) {
+    // 5 -> 6: supplemental pay. The new table comes from SCHEMA below.
+    db.exec(`
+      ALTER TABLE payroll_results ADD COLUMN supplemental_cents INTEGER;
+      PRAGMA user_version = 6;
+    `);
+  }
+  const versionNow = db.prepare("PRAGMA user_version").get().user_version;
+  if (hasTables && versionNow !== SCHEMA_VERSION) {
     db.close();
     throw new Error(
-      `payroll database is at schema version ${existingVersion}, this code needs ${SCHEMA_VERSION}; migrate it first`
+      `payroll database is at schema version ${versionNow}, this code needs ${SCHEMA_VERSION}; migrate it first`
     );
   }
   db.exec(SCHEMA);
@@ -399,6 +420,35 @@ function openPayrollStore(path = ":memory:") {
     },
 
     /** Hours for one employee and period, or null if no timesheet is on file. */
+    setSupplemental(employeeId, payPeriodId, cents) {
+      assertCents(cents, "supplemental cents");
+      if (store.getResult(employeeId, payPeriodId)?.outcome === "paid") {
+        throw new Error(`${employeeId} was already paid for ${payPeriodId}; supplemental pay can't change after payment`);
+      }
+      db.prepare(
+        `INSERT INTO supplemental_pay (employee_id, pay_period_id, cents) VALUES (?, ?, ?)
+         ON CONFLICT(employee_id, pay_period_id) DO UPDATE SET cents = excluded.cents`
+      ).run(employeeId, payPeriodId, cents);
+    },
+
+    getSupplemental(employeeId, payPeriodId) {
+      const row = db
+        .prepare("SELECT cents FROM supplemental_pay WHERE employee_id = ? AND pay_period_id = ?")
+        .get(employeeId, payPeriodId);
+      return row ? row.cents : 0;
+    },
+
+    /** Supplemental wages in paid results this tax year (federal 37% over $1M). */
+    yearToDateSupplementalCents(employeeId, taxYear) {
+      const row = db
+        .prepare(
+          `SELECT COALESCE(SUM(supplemental_cents), 0) AS total FROM payroll_results
+           WHERE employee_id = ? AND tax_year = ? AND outcome = 'paid'`
+        )
+        .get(employeeId, taxYear);
+      return row.total;
+    },
+
     getHours(employeeId, payPeriodId) {
       const row = db
         .prepare("SELECT regular_hours, overtime_hours FROM timesheets WHERE employee_id = ? AND pay_period_id = ?")
@@ -486,13 +536,14 @@ function openPayrollStore(path = ":memory:") {
     saveOutcomes(payPeriod, outcomes) {
       const insert = db.prepare(
         `INSERT INTO payroll_results (
-           employee_id, pay_period_id, tax_year, outcome, gross_pay_cents, federal_withholding_cents,
+           employee_id, pay_period_id, tax_year, outcome, gross_pay_cents, supplemental_cents, federal_withholding_cents,
            social_security_cents, medicare_cents, additional_medicare_cents,
            state_withholding_cents, state_code, local_withholding_json, deferral_requested_cents, deferral_cents, catch_up_portion_cents,
            roth_catch_up_required, net_pay_cents, ledger_employee_id, ledger_pay_period_id, withheld_at, reason)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(employee_id, pay_period_id) DO UPDATE SET
            outcome = excluded.outcome, gross_pay_cents = excluded.gross_pay_cents,
+           supplemental_cents = excluded.supplemental_cents,
            federal_withholding_cents = excluded.federal_withholding_cents,
            social_security_cents = excluded.social_security_cents,
            medicare_cents = excluded.medicare_cents,
@@ -521,6 +572,7 @@ function openPayrollStore(path = ":memory:") {
             payPeriod.taxYear,
             outcome,
             r?.grossPayCents ?? null,
+            r ? r.supplementalCents ?? 0 : null,
             r?.taxWithholding.federalCents ?? null,
             r?.taxWithholding.socialSecurityCents ?? null,
             r?.taxWithholding.medicareCents ?? null,

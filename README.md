@@ -151,6 +151,11 @@ What the records settle, so callers no longer pass them in:
   database refuses to overwrite it, and hours can't change after it).
   Re-running a period skips paid employees and retries the skipped or
   failed ones.
+- **Bonuses are per employee per period.** `setSupplemental(employeeId,
+  payPeriodId, cents)` records a bonus, commission or award paid with that
+  period's regular pay; like hours, it can't change once the period is
+  paid. Paid results keep the supplemental part, so year-to-date bonuses
+  (for the federal $1 million rule) come from the records.
 - **Prior-year FICA wages** (for the Roth catch-up rule) are recorded per
   year with `setFicaWages`. If none are on file the answer is "unknown",
   not zero.
@@ -197,6 +202,24 @@ plus the Annual Percentage Method tables, for 2025 and 2026.
 - 0.9% Additional Medicare on wages over $200,000 in the year.
 
 FICA is on gross pay, because 401(k) deferrals don't reduce FICA wages.
+
+**Supplemental pay (bonuses)** (`src/regulatory/supplemental.js`, IRS
+Publication 15 (2026), section 7) is added to gross pay. Federal income
+tax on it:
+- **Aggregate** (the default, always allowed): regular pay and bonus are
+  withheld on as one payment.
+- **Flat 22%** when the plan elects it (`plan.supplementalMethod:
+  "flat"`): regular pay on the tables, the bonus at exactly 22%. An
+  employee with no income tax withheld (exempt W-4) gets the aggregate
+  result instead, as Publication 15 requires.
+- **37% above $1 million**: supplemental wages past $1 million in the
+  calendar year are withheld at 37% whatever the method or W-4.
+
+A pre-tax deferral is shared between regular pay and bonus in proportion
+to each. The breakdown is returned (`federalSupplemental`). State tax and
+FICA treat the bonus as ordinary pay (every state guide here allows
+combining it with regular pay; states' optional flat bonus rates aren't
+used).
 The wage base and threshold need year-to-date wages, which the data layer
 sums from saved results.
 
@@ -403,10 +426,10 @@ Not modeled yet:
   (statewide transit tax).
 
 ## Not modeled yet
-- supplemental-wage (bonus) flat rates;
+- states' optional flat supplemental (bonus) rates;
 - Section 125 cafeteria-plan deductions, which would reduce both income-tax
   and FICA wages;
-- local income taxes;
+- local taxes beyond those listed under state withholding;
 - nonresident-alien withholding adjustments.
 
 The browser demo still uses flat rates. It's a chain demo, not the engine.

@@ -145,7 +145,7 @@ describe("payrollStore: records", () => {
       const old = new DatabaseSync(file);
       old.exec("CREATE TABLE employees (id TEXT PRIMARY KEY)"); // a v1-era file: user_version 0
       old.close();
-      expect(() => openPayrollStore(file)).to.throw(/schema version 0, this code needs 5/);
+      expect(() => openPayrollStore(file)).to.throw(/schema version 0, this code needs 6/);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -168,6 +168,8 @@ describe("payrollStore: records", () => {
         db.exec(`ALTER TABLE employees DROP COLUMN ${c}`);
       }
       db.exec("ALTER TABLE payroll_results DROP COLUMN state_code");
+      db.exec("ALTER TABLE payroll_results DROP COLUMN supplemental_cents");
+      db.exec("DROP TABLE supplemental_pay");
       db.exec("PRAGMA user_version = 4");
       db.close();
 
@@ -176,6 +178,9 @@ describe("payrollStore: records", () => {
         expect(migrated.getEmployee("a")).to.include({ workState: "TX", reciprocityCertificate: false });
         migrated.upsertEmployee({ id: "b", payType: "salary", annualSalaryCents: 52_000_00, payPeriodsPerYear: 26, workState: "NJ", residenceState: "PA", reciprocityCertificate: true });
         expect(migrated.getEmployee("b").residenceState).to.equal("PA");
+        migrated.createPayPeriod({ id: "P1", periodStart: "2026-01-05", periodEnd: "2026-01-18", payDate: "2026-01-23" });
+        migrated.setSupplemental("a", "P1", 1_000_00); // 5 -> 6 ran too
+        expect(migrated.getSupplemental("a", "P1")).to.equal(1_000_00);
       } finally {
         migrated.close();
       }
