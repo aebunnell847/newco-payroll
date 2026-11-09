@@ -20,7 +20,8 @@ const run = (state, wagesCents, payPeriodsPerYear, form, { taxYear = 2026, gross
 describe("state withholding: registry", () => {
   it("lists exactly the states with a sourced method", () => {
     expect(SUPPORTED_STATES).to.deep.equal([
-      "AK", "CA", "CO", "FL", "IL", "KY", "MI", "NC", "NH", "NJ", "NV", "NY", "PA", "SD", "TN", "TX", "WA", "WY",
+      "AK", "AZ", "CA", "CO", "FL", "GA", "IA", "ID", "IL", "IN", "KY", "LA", "MI", "MS", "NC", "NH", "NJ", "NV", "NY",
+      "PA", "SD", "TN", "TX", "UT", "WA", "WY",
     ]);
   });
 
