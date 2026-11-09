@@ -33,6 +33,7 @@ function seed(store) {
   store.upsertEmployee({
     id: "emp-001",
     payType: "salary",
+    workState: "TX",
     annualSalaryCents: 104_000_00,
     payPeriodsPerYear: 26,
     deferralElectionPct: 5,
@@ -41,6 +42,7 @@ function seed(store) {
   store.upsertEmployee({
     id: "emp-002",
     payType: "hourly",
+    workState: "TX",
     hourlyRateCents: 25_00,
     payPeriodsPerYear: 26,
     deferralElectionPct: 10,
@@ -115,6 +117,23 @@ describe("payrollStore: records", () => {
     ).to.throw(/Form W-4: filingStatus/);
   });
 
+  it("round-trips a work state and its state certificate", () => {
+    const de4 = { filingStatus: "married", regularAllowances: 2 };
+    store.upsertEmployee({ ...store.getEmployee("emp-001"), workState: "CA", stateW4: de4 });
+    expect(store.getEmployee("emp-001")).to.deep.include({ workState: "CA", stateW4: de4 });
+  });
+
+  it("refuses a state certificate that doesn't fit the work state, or an unsupported state", () => {
+    const emp = store.getEmployee("emp-001");
+    expect(() => store.upsertEmployee({ ...emp, workState: "CA", stateW4: { line1Allowances: 1 } })).to.throw(
+      /California DE 4/
+    );
+    expect(() => store.upsertEmployee({ ...emp, workState: "NY" })).to.throw(/no sourced withholding method/);
+    expect(() => store.upsertEmployee({ ...emp, workState: null, stateW4: { line1Allowances: 1 } })).to.throw(
+      /without a workState/
+    );
+  });
+
   it("refuses to open a database file from an older schema version", () => {
     const fs = require("node:fs");
     const os = require("node:os");
@@ -126,7 +145,7 @@ describe("payrollStore: records", () => {
       const old = new DatabaseSync(file);
       old.exec("CREATE TABLE employees (id TEXT PRIMARY KEY)"); // a v1-era file: user_version 0
       old.close();
-      expect(() => openPayrollStore(file)).to.throw(/schema version 0, this code needs 2/);
+      expect(() => openPayrollStore(file)).to.throw(/schema version 0, this code needs 3/);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -197,6 +216,7 @@ describe("runStoredPayroll", () => {
     store.upsertEmployee({
       id: "emp-003",
       payType: "salary",
+      workState: "TX",
       annualSalaryCents: 1_300_000_00, // $50,000 a period
       payPeriodsPerYear: 26,
       deferralElectionPct: 30, // $15,000 a period
@@ -227,6 +247,7 @@ describe("runStoredPayroll", () => {
     store.upsertEmployee({
       id: "emp-004",
       payType: "salary",
+      workState: "TX",
       annualSalaryCents: 520_000_00, // $20,000 a period
       payPeriodsPerYear: 26,
       deferralElectionPct: 40, // $8,000 requested
@@ -288,6 +309,7 @@ describe("runStoredPayroll", () => {
     store.upsertEmployee({
       id: "emp-005",
       payType: "salary",
+      workState: "TX",
       annualSalaryCents: 2_600_000_00, // $100,000 a period
       payPeriodsPerYear: 26,
     });
@@ -322,6 +344,34 @@ describe("runStoredPayroll", () => {
       b.close();
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("runStoredPayroll: state withholding from the employee record", () => {
+  it("withholds by each employee's own work state and certificate", async () => {
+    const store = openPayrollStore();
+    try {
+      const base = { payType: "salary", annualSalaryCents: 104_000_00, payPeriodsPerYear: 26 };
+      store.upsertEmployee({ ...base, id: "ca", workState: "CA", stateW4: { filingStatus: "single", regularAllowances: 1 } });
+      store.upsertEmployee({ ...base, id: "il", workState: "IL", stateW4: { line1Allowances: 1, line2Allowances: 0 } });
+      store.upsertEmployee({ ...base, id: "pa", workState: "PA" });
+      store.upsertEmployee({ ...base, id: "tx", workState: "TX" });
+      store.upsertEmployee({ ...base, id: "none" }); // no work state on file
+      store.createPayPeriod({ id: "2026-P01", periodStart: "2025-12-22", periodEnd: "2026-01-04", payDate: "2026-01-09" });
+      await runStoredPayroll(store, "2026-P01");
+
+      const st = (id) => store.getResult(id, "2026-P01");
+      expect(st("pa").stateWithholdingCents).to.equal(122_80); // 3.07% x $4,000
+      expect(st("tx").stateWithholdingCents).to.equal(0);
+      // IL: 4.95% x ($4,000 - $2,925/26)
+      expect(st("il").stateWithholdingCents).to.equal(Math.round((4_000_00 - 2_925_00 / 26) * 0.0495));
+      expect(st("ca").stateWithholdingCents).to.be.greaterThan(0);
+      // Missing work state fails that employee for review, not the batch.
+      expect(st("none").outcome).to.equal("error");
+      expect(st("none").reason).to.match(/no work state on file/);
+    } finally {
+      store.close();
     }
   });
 });

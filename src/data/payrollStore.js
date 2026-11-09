@@ -23,10 +23,11 @@
 
 const { DatabaseSync } = require("node:sqlite");
 const { validateW4 } = require("../regulatory/federalWithholding");
+const { validateStateForm } = require("../regulatory/state");
 
 // Bump when the schema changes. An existing file at an older version is
 // refused rather than silently used with missing columns.
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const SCHEMA = `
 PRAGMA foreign_keys = ON;
@@ -42,6 +43,10 @@ CREATE TABLE IF NOT EXISTS employees (
   -- Form W-4 elections as JSON (validated on write); NULL = none on file.
   -- Filing status and dollar elections only: no name, SSN or address.
   w4_json               TEXT,
+  -- Two-letter work state and that state's certificate (DE 4, IL-W-4, ...)
+  -- as JSON; NULL certificate = none on file.
+  work_state            TEXT CHECK (work_state IS NULL OR (length(work_state) = 2 AND work_state = upper(work_state))),
+  state_w4_json         TEXT,
   consent_attestation_id TEXT,
   status                TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'terminated')),
   CHECK (pay_type <> 'salary' OR (annual_salary_cents IS NOT NULL AND pay_periods_per_year IS NOT NULL)),
@@ -133,6 +138,8 @@ function rowToEmployee(row) {
     deferralElectionPct: row.deferral_election_pct,
     birthYear: row.birth_year ?? undefined,
     w4: row.w4_json ? JSON.parse(row.w4_json) : null,
+    workState: row.work_state ?? undefined,
+    stateW4: row.state_w4_json ? JSON.parse(row.state_w4_json) : null,
     consentAttestationId: row.consent_attestation_id ?? null,
     status: row.status,
   };
@@ -230,6 +237,8 @@ function openPayrollStore(path = ":memory:") {
         deferralElectionPct = 0,
         birthYear = null,
         w4 = null,
+        workState = null,
+        stateW4 = null,
         consentAttestationId = null,
         status = "active",
       } = employee;
@@ -238,10 +247,13 @@ function openPayrollStore(path = ":memory:") {
       assertCents(hourlyRateCents, "hourlyRateCents", { optional: true });
       if (birthYear !== null && !Number.isInteger(birthYear)) throw new Error("birthYear must be an integer year");
       validateW4(w4);
+      if (workState !== null) validateStateForm(workState, stateW4);
+      else if (stateW4 !== null) throw new Error("stateW4 given without a workState");
       db.prepare(
         `INSERT INTO employees (id, pay_type, annual_salary_cents, pay_periods_per_year, hourly_rate_cents,
-                                deferral_election_pct, birth_year, w4_json, consent_attestation_id, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                deferral_election_pct, birth_year, w4_json, work_state, state_w4_json,
+                                consent_attestation_id, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            pay_type = excluded.pay_type,
            annual_salary_cents = excluded.annual_salary_cents,
@@ -250,6 +262,8 @@ function openPayrollStore(path = ":memory:") {
            deferral_election_pct = excluded.deferral_election_pct,
            birth_year = excluded.birth_year,
            w4_json = excluded.w4_json,
+           work_state = excluded.work_state,
+           state_w4_json = excluded.state_w4_json,
            consent_attestation_id = excluded.consent_attestation_id,
            status = excluded.status`
       ).run(
@@ -261,6 +275,8 @@ function openPayrollStore(path = ":memory:") {
         deferralElectionPct,
         birthYear,
         w4 === null ? null : JSON.stringify(w4),
+        workState,
+        stateW4 === null ? null : JSON.stringify(stateW4),
         consentAttestationId,
         status
       );
