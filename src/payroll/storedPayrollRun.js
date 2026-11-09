@@ -65,7 +65,11 @@ async function runStoredPayroll(store, payPeriodId, options = {}) {
     yearToDateDeferralFor: (e) => store.yearToDateDeferralCents(e.id, payPeriod.taxYear),
     yearToDateFicaWagesFor: (e) => store.yearToDateFicaWagesCents(e.id, payPeriod.taxYear),
     monthToDateFor: (e) => store.monthToDate(e.id, payPeriod.payDate),
-    hoursFor: (e) => (e.payType === "hourly" ? store.getHours(e.id, payPeriod.id) : {}),
+    yearToDateSupplementalFor: (e) => store.yearToDateSupplementalCents(e.id, payPeriod.taxYear),
+    hoursFor: (e) => ({
+      ...(e.payType === "hourly" ? store.getHours(e.id, payPeriod.id) : {}),
+      supplementalCents: store.getSupplemental(e.id, payPeriod.id),
+    }),
   });
 
   const all = [...missingTimesheet, ...outcomes];

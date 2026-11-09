@@ -16,6 +16,7 @@ const { computeFederalWithholdingCents } = require("../regulatory/federalWithhol
 const { computeFicaCents } = require("../regulatory/fica");
 const { computeStateWithholdingCents, SUPPORTED_STATES } = require("../regulatory/state");
 const { reciprocityFor } = require("../regulatory/state/reciprocity");
+const { getSupplementalRules, splitAtMillion, METHODS: SUPPLEMENTAL_METHODS } = require("../regulatory/supplemental");
 
 /**
  * Every rate and limit used here is sourced, by tax year, in
@@ -35,7 +36,16 @@ const { reciprocityFor } = require("../regulatory/state/reciprocity");
  * overtime rule - real overtime law varies by state and is itself a RAG
  * question, not a hardcoded 1.5x in every jurisdiction).
  */
+/** Regular pay plus any supplemental pay (bonus, commission, ...) for the period. */
 function computeGrossPayCents(employee, payPeriod) {
+  const supplementalCents = payPeriod.supplementalCents ?? 0;
+  if (!Number.isSafeInteger(supplementalCents) || supplementalCents < 0) {
+    throw new Error("supplementalCents must be a non-negative integer number of cents");
+  }
+  return computeRegularPayCents(employee, payPeriod) + supplementalCents;
+}
+
+function computeRegularPayCents(employee, payPeriod) {
   if (employee.payType === "salary") {
     const { annualSalaryCents, payPeriodsPerYear } = employee;
     if (!annualSalaryCents || !payPeriodsPerYear) {
@@ -98,13 +108,20 @@ function computeTaxWithholdingCents({
   residenceState = null,
   residenceStateW4 = null,
   reciprocityCertificate = false,
+  supplementalCents = 0,
+  yearToDateSupplementalCents = 0,
+  supplementalMethod = "aggregate",
 }) {
   const federalTaxableWagesCents = grossPayCents - preTaxDeductionsCents;
-  const federal = computeFederalWithholdingCents({
+  const federal = federalWithSupplemental({
     taxYear,
-    taxableWagesCents: federalTaxableWagesCents,
+    grossPayCents,
+    federalTaxableWagesCents,
     payPeriodsPerYear,
     w4,
+    supplementalCents,
+    yearToDateSupplementalCents,
+    supplementalMethod,
   });
   const fica = computeFicaCents({ taxYear, ficaWagesCents: grossPayCents, yearToDateFicaWagesCents });
   const stateArgs = {
@@ -151,6 +168,7 @@ function computeTaxWithholdingCents({
 
   return {
     federalCents: federal.federalCents,
+    federalSupplemental: federal.supplemental,
     federalTaxableWagesCents,
     federalWorksheet: federal.lines,
     w4Basis: federal.w4Basis,
@@ -166,6 +184,64 @@ function computeTaxWithholdingCents({
     localCents: state.localCents,
     reciprocity,
     totalCents: federal.federalCents + fica.totalCents + state.stateCents + state.localCents,
+  };
+}
+
+/**
+ * Federal income tax with supplemental wages (Publication 15, section 7;
+ * see regulatory/supplemental.js). The pre-tax deferral is shared between
+ * regular and supplemental pay in proportion to each.
+ */
+function federalWithSupplemental({
+  taxYear,
+  grossPayCents,
+  federalTaxableWagesCents,
+  payPeriodsPerYear,
+  w4,
+  supplementalCents,
+  yearToDateSupplementalCents,
+  supplementalMethod,
+}) {
+  if (!supplementalCents) {
+    return computeFederalWithholdingCents({ taxYear, taxableWagesCents: federalTaxableWagesCents, payPeriodsPerYear, w4 });
+  }
+  if (!SUPPLEMENTAL_METHODS.includes(supplementalMethod)) {
+    throw new Error(`supplementalMethod must be one of ${SUPPLEMENTAL_METHODS.join(", ")}`);
+  }
+  const t = getSupplementalRules(taxYear);
+  const supplementalTaxableCents = Math.round((federalTaxableWagesCents * supplementalCents) / grossPayCents);
+  const regularTaxableCents = federalTaxableWagesCents - supplementalTaxableCents;
+  const { mandatoryTaxableCents, ordinaryTaxableCents } = splitAtMillion(t, {
+    supplementalTaxableCents,
+    supplementalCents,
+    yearToDateSupplementalCents,
+  });
+  const mandatoryCents = Math.round((mandatoryTaxableCents * t.mandatoryRateBp) / 10_000);
+  const exempt = w4 && w4.exempt;
+  let base;
+  let flatCents = 0;
+  if (supplementalMethod === "flat") {
+    base = computeFederalWithholdingCents({ taxYear, taxableWagesCents: regularTaxableCents, payPeriodsPerYear, w4 });
+    flatCents = exempt ? 0 : Math.round((ordinaryTaxableCents * t.flatRateBp) / 10_000);
+  } else {
+    base = computeFederalWithholdingCents({
+      taxYear,
+      taxableWagesCents: regularTaxableCents + ordinaryTaxableCents,
+      payPeriodsPerYear,
+      w4,
+    });
+  }
+  return {
+    ...base,
+    federalCents: base.federalCents + flatCents + mandatoryCents,
+    supplemental: {
+      method: supplementalMethod,
+      supplementalCents,
+      supplementalTaxableCents,
+      flatCents,
+      mandatoryTaxableCents,
+      mandatoryCents,
+    },
   };
 }
 
@@ -267,7 +343,8 @@ function runPayrollForEmployee(
   yearToDateDeferralCents = 0,
   plan = {},
   yearToDateFicaWagesCents = 0,
-  monthToDate = null
+  monthToDate = null,
+  yearToDateSupplementalCents = 0
 ) {
   const grossPayCents = computeGrossPayCents(employee, payPeriod);
   const taxYear = payPeriod.taxYear;
@@ -290,6 +367,9 @@ function runPayrollForEmployee(
       residenceState: employee.residenceState ?? null,
       residenceStateW4: employee.residenceStateW4 ?? null,
       reciprocityCertificate: Boolean(employee.reciprocityCertificate),
+      supplementalCents: payPeriod.supplementalCents ?? 0,
+      yearToDateSupplementalCents,
+      supplementalMethod: plan.supplementalMethod ?? "aggregate",
     });
   const netFor = (deferral, withholding) => grossPayCents - withholding.totalCents - deferral.actualCents;
 
@@ -320,6 +400,7 @@ function runPayrollForEmployee(
     employeeId: employee.id,
     payPeriodId: payPeriod.id,
     grossPayCents,
+    supplementalCents: payPeriod.supplementalCents ?? 0,
     taxWithholding: withholding,
     contribution401k: deferral,
     netPayCents: netFor(deferral, withholding),
