@@ -25,6 +25,29 @@
 const { fromBaseTable } = require("./brackets");
 
 const TABLES = Object.freeze({
+  2025: Object.freeze({
+    annualTables: Object.freeze({
+      single: Object.freeze([
+        [0, 0, 0],
+        [55_975_00, 0, 195],
+        [252_325_00, 3_828_83, 250],
+      ]),
+      marriedFilingJointly: Object.freeze([
+        [0, 0, 0],
+        [55_488_00, 0, 195],
+        [164_038_00, 2_116_73, 250],
+      ]),
+      headOfHousehold: Object.freeze([
+        [0, 0, 0],
+        [76_200_00, 0, 195],
+        [282_700_00, 4_026_75, 250],
+      ]),
+    }),
+    pre2020AllowanceCents: 5_050_00,
+    sources: Object.freeze([
+      "ND Office of State Tax Commissioner, Income Tax Withholding Rates and Instructions, 2025 Calendar Year: https://www.tax.nd.gov/sites/www/files/documents/misc-discuss-folder/Final_2025%20Income%20Tax%20Withholding%20Rates%20%20Instructions.pdf",
+    ]),
+  }),
   2026: Object.freeze({
     annualTables: Object.freeze({
       single: Object.freeze([

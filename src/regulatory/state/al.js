@@ -54,6 +54,18 @@ const STANDARD_DEDUCTION = Object.freeze({
 });
 
 const TABLES = Object.freeze({
+  2025: Object.freeze({
+    standardDeduction: STANDARD_DEDUCTION,
+    personalExemptionCents: Object.freeze({ "0": 0, S: 1_500_00, MS: 1_500_00, M: 3_000_00, H: 3_000_00 }),
+    dependentCents: Object.freeze([
+      [50_000_00, 1_000_00],
+      [100_000_00, 500_00],
+      [Infinity, 300_00],
+    ]),
+    sources: Object.freeze([
+      "Alabama DOR, Withholding Tax Tables and Instructions for Employers and Withholding Agents (revised January 2025; same formula and example as 2026), as archived Mar. 2, 2025: https://web.archive.org/web/20250302132833/https://www.revenue.alabama.gov/wp-content/uploads/2025/01/whbooklet_0125.pdf",
+    ]),
+  }),
   2026: Object.freeze({
     standardDeduction: STANDARD_DEDUCTION,
     personalExemptionCents: Object.freeze({ "0": 0, S: 1_500_00, MS: 1_500_00, M: 3_000_00, H: 3_000_00 }),

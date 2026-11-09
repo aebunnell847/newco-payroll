@@ -22,6 +22,19 @@ const { formChecker, onFile } = require("./formUtil");
 const { fromBaseTable } = require("./brackets");
 
 const TABLES = Object.freeze({
+  2025: Object.freeze({
+    allowanceCents: 4_860_00,
+    standardDeductionRateBp: 1_000,
+    standardDeductionCapCents: 7_300_00,
+    annualTable: Object.freeze([
+      [0, 0, 0],
+      [3_560_00, 0, 300],
+      [17_830_00, 428_10, 620],
+    ]),
+    sources: Object.freeze([
+      "SC DOR, WH-1603F (Rev. 11/12/24) Formula for Computing South Carolina 2025 Withholding Tax: https://dor.sc.gov/sites/dor/files/forms/WH1603F_2025.pdf",
+    ]),
+  }),
   2026: Object.freeze({
     allowanceCents: 5_000_00,
     standardDeductionRateBp: 1_000,
