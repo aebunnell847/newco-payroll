@@ -7,20 +7,21 @@
 // each employee's contribution amount next to their employeeId. A plain
 // hash of a guessable identifier (a sequential employee number, an
 // email, an SSN) can be brute-forced in seconds: hash every candidate and
-// compare. That would expose individual 401(k) deferral amounts.
+// compare. That would tie individual 401(k) deferral amounts to named
+// people.
 //
-// Instead this uses HMAC-SHA256 with a secret key only the employer's
-// payroll operator holds (NEWCO_EMPLOYEE_ID_KEY). Without the key,
-// guessing an ID tells you nothing. With it, payroll and anyone it
-// deliberately shares the key with (for example the custodian, so it can
-// record remittances against the same IDs) get a stable, deterministic
-// ledger ID per employee.
+// Instead this uses HMAC-SHA256 with a secret key only payroll holds
+// (NEWCO_EMPLOYEE_ID_KEY). Without the key, guessing an ID tells you
+// nothing. Payroll is the system of record for employee IDs and never
+// shares the key, not even with the custodian; the custodian gets each
+// ledger ID in the remittance file (remittance/instructions.js).
 //
-// What this does NOT hide: the same employee gets the same ledger ID
-// every pay period, so an observer can still follow one pseudonym's
-// contribution history and amounts, just not attach a name to it.
-// Hiding the amounts themselves is an on-chain design question for
-// newco-contracts, not something this file can fix.
+// Amounts stay public BY DESIGN. The same employee gets the same ledger
+// ID every pay period, so anyone can follow one pseudonym's contribution
+// history and amounts and spot-check the reconciliation, without being
+// able to attach a name to it. What this file protects is identity, not
+// the amounts. Don't "fix" that by hiding or encrypting amounts: public
+// amounts are what make independent spot-checking possible.
 
 const crypto = require("crypto");
 

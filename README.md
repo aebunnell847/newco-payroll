@@ -147,10 +147,12 @@ Without the key, a guessed ID tells you nothing.
 - **Don't rotate the key casually:** a new key gives every employee a
   new ledger ID, so records before and after can't be joined without
   the old key.
-- **What this doesn't hide:** an employee's ledger ID is the same every
-  pay period, so an observer can still follow one pseudonym's
-  contribution amounts over time, just not attach a name. Hiding the
-  amounts is an on-chain design question for `newco-contracts`.
+- **Amounts stay public, by design.** An employee's ledger ID is the
+  same every pay period, so anyone can follow one pseudonym's
+  contribution amounts over time and spot-check the reconciliation
+  independently, just not attach a name. The keyed ID protects
+  identity, not amounts. Keeping amounts visible is a deliberate choice
+  for verifiability, not an open gap.
 
 The browser demo uses the same scheme with a public, demo-only key.
 
