@@ -128,7 +128,7 @@ describe("payrollStore: records", () => {
     expect(() => store.upsertEmployee({ ...emp, workState: "CA", stateW4: { line1Allowances: 1 } })).to.throw(
       /California DE 4/
     );
-    expect(() => store.upsertEmployee({ ...emp, workState: "OR" })).to.throw(/no sourced withholding method/);
+    expect(() => store.upsertEmployee({ ...emp, workState: "PR" })).to.throw(/no sourced withholding method/);
     expect(() => store.upsertEmployee({ ...emp, workState: null, stateW4: { line1Allowances: 1 } })).to.throw(
       /without a workState/
     );

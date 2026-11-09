@@ -39,6 +39,7 @@ const MODULES = [
   require("./la"),
   require("./me"),
   require("./mi"),
+  require("./mn"),
   require("./mo"),
   require("./ms"),
   require("./mt"),
@@ -48,11 +49,15 @@ const MODULES = [
   require("./nj"),
   require("./ny"),
   require("./ok"),
+  require("./or"),
   require("./pa"),
+  require("./ri"),
   require("./sc"),
   require("./ut"),
   require("./va"),
+  require("./vt"),
   require("./wi"),
+  require("./wv"),
   ...require("./noIncomeTax"),
 ];
 const BY_CODE = Object.freeze(Object.fromEntries(MODULES.map((m) => [m.code, m])));
