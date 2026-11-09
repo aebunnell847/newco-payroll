@@ -15,13 +15,17 @@
 // tables: payroll never falls back to a guessed rate.
 //
 // Wage basis differs by state, which is why each module declares it:
-//   "federal-income-tax-wages" - gross minus pre-tax 401(k) (CA, IL)
+//   "federal-income-tax-wages" - gross minus pre-tax 401(k) (most states)
 //   "gross"                    - 401(k) deferrals are taxed (PA)
-//   "none"                     - no state income tax (TX, FL, WA)
+//   "none"                     - no state income tax (see noIncomeTax.js)
 
 const MODULES = [
   require("./ca"),
+  require("./co"),
   require("./il"),
+  require("./ky"),
+  require("./mi"),
+  require("./nc"),
   require("./nj"),
   require("./ny"),
   require("./pa"),

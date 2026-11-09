@@ -19,7 +19,9 @@ const run = (state, wagesCents, payPeriodsPerYear, form, { taxYear = 2026, gross
 
 describe("state withholding: registry", () => {
   it("lists exactly the states with a sourced method", () => {
-    expect(SUPPORTED_STATES).to.deep.equal(["CA", "FL", "IL", "NJ", "NY", "PA", "TX", "WA"]);
+    expect(SUPPORTED_STATES).to.deep.equal([
+      "AK", "CA", "CO", "FL", "IL", "KY", "MI", "NC", "NH", "NJ", "NV", "NY", "PA", "SD", "TN", "TX", "WA", "WY",
+    ]);
   });
 
   it("refuses an unsupported state, a missing state, or an unsourced year", () => {
@@ -130,7 +132,7 @@ describe("Pennsylvania (flat 3.07%)", () => {
 });
 
 describe("no-income-tax states", () => {
-  for (const state of ["TX", "FL", "WA"]) {
+  for (const state of ["AK", "FL", "NH", "NV", "SD", "TN", "TX", "WA", "WY"]) {
     it(`${state}: withholds nothing in 2025 and 2026`, () => {
       expect(run(state, 10_000_00, 26, null).stateCents).to.equal(0);
       expect(run(state, 10_000_00, 26, null, { taxYear: 2025 }).stateCents).to.equal(0);
