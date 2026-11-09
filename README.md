@@ -221,11 +221,15 @@ with its own sources and tax years.
 | State | Method | Wages taxed | No certificate on file | Years |
 |---|---|---|---|---|
 | CA | EDD Method B, annual method, DE 4 | Gross minus pre-tax 401(k) (EDD DE 231A) | Single, 0 allowances (DE 44) | 2026 |
+| CO | DR 1098 worksheet: 4.40% after an annual allowance; DR 0004 or the federal W-4 | Gross minus pre-tax 401(k) (Wage Withholding Tax Guide) | As a "single" W-4: $5,500 allowance (DR 1098). A pre-2020 W-4 also gets $5,500 (DR 1098 is silent; flagged) | 2026 |
 | IL | IL-700-T automated method, IL-W-4 | Gross minus pre-tax 401(k) (86 Ill. Adm. Code 100.7010) | No exemptions (IL-W-4) | 2025, 2026 |
+| KY | 42A003 formula: 3.5% after the $3,360 standard deduction; K-4 (exempt, extra only) | Gross minus pre-tax 401(k) (42A003: IRC 3401 wages) | Formula with no extra | 2026 |
+| MI | Form 446 direct percentage: 4.25% after exemptions x $5,900 ($5,800 in 2025); MI-W4 | Gross minus pre-tax 401(k) (Form 446: follows federal) | Zero exemptions (Form 446) | 2025, 2026 |
+| NC | NC-30 annualized method: 4.09% after the standard deduction and $2,500 per allowance, rounded to the dollar; NC-4 | Gross minus pre-tax 401(k) (NC-30: IRC 3401 wages) | Single, no allowances (NC-30) | 2026 |
 | NJ | Rate Tables A-E per payroll period, NJ-W4 (A for single/separate, B for joint/HoH/widow(er), or the table chosen on line 3) | Gross minus 401(k) up to the federal limit (NJ-WT) | Rate A, 0 allowances (current NJ-WT is silent; this is the higher-withholding choice) | 2025, 2026 |
 | NY | NYS-50-T Method II per pay frequency, Method III top rates, IT-2104; **plus NYC resident tax and Yonkers resident surcharge** | Gross minus pre-tax 401(k) (NYS-50) | Single, 0 allowances; a pre-2020 federal W-4's allowances if that's what's on file (NYS-50); no city tax | 2026 |
 | PA | Flat 3.07% | **Gross; 401(k) deferrals are taxed** (REV-415) | No certificate exists | 2025, 2026 |
-| TX, FL, WA | No individual income tax | n/a | n/a | 2025, 2026 |
+| AK, FL, NH, NV, SD, TN, TX, WA, WY | No individual income tax on wages (each cited in `noIncomeTax.js`) | n/a | n/a | 2025, 2026 |
 
 How the figures are checked:
 - **California.** `tools/state/generate_ca_method_b.py` generates the
@@ -233,6 +237,13 @@ How the figures are checked:
   the cent. C and D come within 2 cents, because EDD worked those with its
   per-period tables while this uses the annual method EDD allows.
 - **Illinois.** Both years' booklet examples match to the cent.
+- **Kentucky.** The 42A003 monthly example matches to the cent. The
+  biweekly one prints $1,247.40 / 26 as "$47"; this keeps the cent
+  ($47.98).
+- **North Carolina.** NC-30's worked example ($450 weekly, single, 2
+  allowances = $4.00) matches.
+- **Colorado and Michigan** publish a formula but no worked example; the
+  tests pin the formula line by line.
 - **New Jersey.** `tools/state/generate_nj.py` generates all 40 tables
   (Rates A-E, 8 payroll periods) from the Division's PDF.
   - It corrects and reports two print defects in that PDF: "$15.000" for
@@ -265,7 +276,10 @@ through 2026, because it has enacted a tax on income over $1M starting in
 
 Not modeled yet:
 - other states;
-- other local income taxes, including PA's local earned income tax and the
+- other local income taxes, including PA's local earned income tax,
+  Michigan's city income taxes (Detroit and others), Kentucky's
+  occupational license taxes, Denver and Aurora's occupational privilege
+  taxes, and the
   Yonkers *nonresident* earnings tax (0.5% of wages earned in Yonkers);
 - New York pay frequencies other than daily, weekly, biweekly,
   semimonthly, monthly and annual;

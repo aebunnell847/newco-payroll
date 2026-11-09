@@ -7,7 +7,9 @@
 // $1 million starting January 1, 2028 (SB 6346), so it is listed only for
 // 2025-2026 here.
 //
-// Not covered yet: AK, NV, NH, SD, TN, WY - add each with its own source.
+// New Hampshire and Tennessee never taxed wages; each had a tax on interest
+// and dividends only (NH's repealed for periods beginning on or after
+// Jan. 1, 2025; TN's Hall tax for periods beginning on or after Jan. 1, 2021).
 
 function noTaxState(code, name, years, sources) {
   return Object.freeze({
@@ -34,6 +36,25 @@ module.exports = [
   ]),
   noTaxState("FL", "Florida", [2025, 2026], [
     "Florida Department of Revenue, Do I have to file a personal income tax return in Florida?: https://floridarevenue.com/faq/Pages/FAQDetails.aspx?FAQID=1466",
+  ]),
+  noTaxState("AK", "Alaska", [2025, 2026], [
+    "Alaska Department of Revenue, Tax Division Annual Report (history: 1980 repeal of the individual income tax in AS 43.20): https://tax.alaska.gov/programs/programs/reports/AnnualReport.aspx?Year=2023",
+  ]),
+  noTaxState("NH", "New Hampshire", [2025, 2026], [
+    "NH Department of Revenue Administration, Interest & Dividends Tax Repeal: https://www.revenue.nh.gov/news-and-media/interest-dividends-tax-repeal",
+    "State of New Hampshire ACFR FY2025 (no personal earned income tax): https://www.das.nh.gov/accounting/FY%2025/FY_2025_Annual_Comprehensive_Financial_Report.pdf",
+  ]),
+  noTaxState("NV", "Nevada", [2025, 2026], [
+    "Nevada Department of Taxation, Income Tax in Nevada: https://tax.nv.gov/about-nevada-department-of-taxation/income-tax-in-nevada/",
+  ]),
+  noTaxState("SD", "South Dakota", [2025, 2026], [
+    "South Dakota Department of Revenue, Taxes: https://dor.sd.gov/individuals/taxes/",
+  ]),
+  noTaxState("TN", "Tennessee", [2025, 2026], [
+    "Tennessee Department of Revenue, GEN-34 Income Tax Withholding: https://revenue.support.tn.gov/hc/en-us/articles/360057595051-GEN-34-Income-Tax-Withholding",
+  ]),
+  noTaxState("WY", "Wyoming", [2025, 2026], [
+    "State of Wyoming, About Wyoming: https://www.wyo.gov/about-wyoming",
   ]),
   noTaxState("WA", "Washington", [2025, 2026], [
     "Washington Department of Revenue, Income tax: https://dor.wa.gov/taxes-rates/income-tax",
