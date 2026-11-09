@@ -58,10 +58,16 @@ component implements).
 ## Natural next steps
 
 - Add states to `regulatory/state/` one file at a time: generate tables
-  from the state agency's own publication (never hand-type brackets),
-  declare the state's wage basis (does it tax 401(k) deferrals?), its
-  no-certificate default, and test against the agency's own worked
-  examples. Then local taxes and reciprocity.
+  from the state agency's own publication with a script in
+  `tools/state/` (never hand-type wage-bracket or multi-period tables).
+  A formula sheet's handful of constants (a rate, a deduction, a few
+  annual brackets) may be transcribed only if a test pins them to the
+  agency's worked example or reproduces its printed per-period figures.
+  Declare the state's wage basis (does it tax 401(k) deferrals?) and its
+  no-certificate default, and say in the file when either is not stated
+  by the agency. A state whose figures changed mid-year needs the pay
+  date (`requirePayDateFrom`) and throws for earlier dates. Then local
+  taxes and reciprocity.
 - Add each new tax year to `regulatory/` (401(k) limits, Pub 15-T tables,
   FICA) when the IRS publishes it - payroll for that year refuses to run
   until then.
