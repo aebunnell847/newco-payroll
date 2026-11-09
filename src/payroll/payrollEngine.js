@@ -112,6 +112,8 @@ function computeTaxWithholdingCents({
     federalW4: w4,
     payDate,
     federalWithholdingCents: federal.federalCents,
+    ficaCents: fica.totalCents,
+    yearToDateFicaWagesCents,
   });
 
   return {

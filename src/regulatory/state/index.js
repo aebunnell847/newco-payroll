@@ -37,6 +37,7 @@ const MODULES = [
   require("./ks"),
   require("./ky"),
   require("./la"),
+  require("./ma"),
   require("./md"),
   require("./me"),
   require("./mi"),
@@ -95,6 +96,9 @@ function validateStateForm(code, form) {
  *                                default refers to it (NY, for 2019-or-earlier forms)
  *   federalWithholdingCents    - this period's federal income tax withheld, for
  *                                states that deduct it (AL)
+ *   ficaCents, yearToDateFicaWagesCents - this period's employee FICA and the
+ *                                year's prior FICA wages, for states that
+ *                                subtract FICA (MA)
  *   payDate                    - "YYYY-MM-DD"; needed by states whose figures
  *                                changed mid-year (GA, ID in 2026)
  *
@@ -111,6 +115,8 @@ function computeStateWithholdingCents({
   federalW4 = null,
   payDate = null,
   federalWithholdingCents = null,
+  ficaCents = null,
+  yearToDateFicaWagesCents = 0,
 }) {
   if (typeof state !== "string" || !state) {
     throw new Error("no work state on file; state withholding needs employee.workState (e.g. \"CA\")");
@@ -118,7 +124,17 @@ function computeStateWithholdingCents({
   const m = getStateModule(state, taxYear);
   const wagesCents =
     m.wageBasis === "gross" ? grossPayCents : m.wageBasis === "none" ? 0 : federalTaxableWagesCents;
-  const out = m.compute({ taxYear, wagesCents, payPeriodsPerYear, form, federalW4, payDate, federalWithholdingCents });
+  const out = m.compute({
+    taxYear,
+    wagesCents,
+    payPeriodsPerYear,
+    form,
+    federalW4,
+    payDate,
+    federalWithholdingCents,
+    ficaCents,
+    yearToDateFicaWagesCents,
+  });
   const localities = out.localities || {};
   const localCents = Object.values(localities).reduce((a, b) => a + b, 0);
   return { state: m.code, wageBasis: m.wageBasis, wagesCents, ...out, localities, localCents };
