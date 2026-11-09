@@ -37,6 +37,7 @@ const MODULES = [
   require("./ks"),
   require("./ky"),
   require("./la"),
+  require("./md"),
   require("./me"),
   require("./mi"),
   require("./mn"),
