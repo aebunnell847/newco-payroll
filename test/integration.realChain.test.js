@@ -81,7 +81,8 @@ describe("integration: real deployed contracts on a local chain", function () {
     await consentRegistry.waitForDeployment();
 
     const ledgerFactory = new ethers.ContractFactory(ledgerArtifact.abi, ledgerArtifact.bytecode, payrollDeployer);
-    reconciliationLedger = await ledgerFactory.deploy(payrollDeployer.address, custodianWallet.address);
+    // Calendar days, 7-day window (deposit-window settings are fixed per ledger).
+    reconciliationLedger = await ledgerFactory.deploy(payrollDeployer.address, custodianWallet.address, 0, 7);
     await reconciliationLedger.waitForDeployment();
 
     chainClient = createChainClient({
