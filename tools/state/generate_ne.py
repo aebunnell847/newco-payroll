@@ -31,7 +31,8 @@ PERIODS = {
     "DAILY OR MISCELLANEOUS": "daily",
 }
 HEAD = re.compile(r"TABLE\s+\d+\s+-\s+(DAILY OR MISCELLANEOUS|SEMIMONTHLY|SEMIANNUAL|BIWEEKLY|QUARTERLY|MONTHLY|ANNUAL|WEEKLY)\s+Payroll", re.I)
-ROW = re.compile(r"\$?\s*([\d,]+)\s+(?:[\d,]+|\S)\s+([\d,]+\.\d\d)\s+plus\s+(\d+\.\d+)%\s+([\d,]+)")
+# The 2025 tables print some bases with a "$" ("$0.00 plus ..."); 2026 doesn't.
+ROW = re.compile(r"\$?\s*([\d,]+)\s+(?:[\d,]+|\S)\s+\$?\s*([\d,]+\.\d\d)\s+[Pp]lus\s+(\d+\.\d+)%\s+([\d,]+)")
 
 
 def cents(s):
@@ -59,9 +60,13 @@ for line in text.splitlines():
         tables[period][status].append([cents(over), cents(base), round(float(rate) * 100)])
 
 assert sorted(tables) == sorted(PERIODS.values()), sorted(tables)
+# Every table uses the same rate ladder (2026: 2.26 3.22 4.21 4.35 4.48 4.60;
+# 2025: 2.26 3.22 4.91 5.07 5.23 5.37), increasing, starting at a zero base.
+ladder = [r[2] for r in tables["weekly"]["single"]]
+assert ladder[0] == 0 and all(a < b for a, b in zip(ladder, ladder[1:])), ladder
 for p, by in tables.items():
     for s, rows in by.items():
-        assert [r[2] for r in rows] == [0, 226, 322, 421, 435, 448, 460], (p, s, rows)
+        assert [r[2] for r in rows] == ladder, (p, s, rows)
         assert rows[1][1] == 0, (p, s)
 
 print(json.dumps({"effective": eff.group(1), "tables": tables}))
