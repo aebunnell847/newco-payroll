@@ -25,6 +25,27 @@
 const { formChecker, onFile } = require("./formUtil");
 
 const TABLES = Object.freeze({
+  2025: Object.freeze({
+    standardDeductionCents: Object.freeze({
+      single: 15_000_00,
+      marriedSpouseDoesNotWork: 30_000_00,
+      headOfHousehold: 22_500_00,
+    }),
+    annualRates: Object.freeze([
+      [0, 0],
+      [1_313_00, 200],
+      [2_626_00, 250],
+      [3_939_00, 300],
+      [5_252_00, 350],
+      [6_565_00, 400],
+      [7_878_00, 450],
+      [9_191_00, 470],
+    ]),
+    sources: Object.freeze([
+      "Missouri DOR, 2025 Missouri Withholding Tax Formula: https://dor.mo.gov/forms/Withholding%20Formula_2025.pdf",
+      "Missouri DOR, Form 4282 Missouri Employer's Tax Guide (2025): https://dor.mo.gov/forms/4282_2025.pdf",
+    ]),
+  }),
   2026: Object.freeze({
     standardDeductionCents: Object.freeze({
       single: 16_100_00,

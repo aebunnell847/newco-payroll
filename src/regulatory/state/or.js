@@ -48,6 +48,57 @@ const { formChecker, onFile } = require("./formUtil");
 const { fromBaseTable } = require("./brackets");
 
 const TABLES = Object.freeze({
+  2025: Object.freeze({
+    standardDeductionCents: Object.freeze({ single: 2_835_00, married: 5_670_00 }),
+    federalCapCents: 8_500_00,
+    exemptionCreditCents: 256_00,
+    noCertificateRateBp: 800,
+    transitTaxBp: 10,
+    under50k: Object.freeze({
+      single: Object.freeze([
+        [0, 256_00, 475],
+        [4_400_00, 465_00, 675],
+        [11_100_00, 917_00, 875],
+      ]),
+      married: Object.freeze([
+        [0, 256_00, 475],
+        [8_800_00, 674_00, 675],
+        [22_200_00, 1_579_00, 875],
+      ]),
+    }),
+    over50k: Object.freeze({
+      single: Object.freeze([
+        [0, 661_00, 875, 11_100_00],
+        [125_000_00, 10_627_00, 990, 125_000_00],
+      ]),
+      married: Object.freeze([
+        [0, 1_323_00, 875, 22_200_00],
+        [250_000_00, 21_256_00, 990, 250_000_00],
+      ]),
+    }),
+    phaseOut: Object.freeze({
+      single: Object.freeze([
+        [0, 8_500_00],
+        [125_000_00, 6_800_00],
+        [130_000_00, 5_100_00],
+        [135_000_00, 3_400_00],
+        [140_000_00, 1_700_00],
+        [145_000_00, 0],
+      ]),
+      married: Object.freeze([
+        [0, 8_500_00],
+        [250_000_00, 6_800_00],
+        [260_000_00, 5_100_00],
+        [270_000_00, 3_400_00],
+        [280_000_00, 1_700_00],
+        [290_000_00, 0],
+      ]),
+    }),
+    sources: Object.freeze([
+      "Oregon DOR, Withholding Tax Formulas, effective January 1, 2025 (150-206-436, Rev. 12-10-24): https://www.oregon.gov/dor/forms/FormsPubs/withholding-tax-formulas_206-436_2025.pdf",
+      "Oregon DOR, Statewide Transit Tax: https://www.oregon.gov/dor/programs/businesses/Pages/statewide-transit-tax.aspx",
+    ]),
+  }),
   2026: Object.freeze({
     standardDeductionCents: Object.freeze({ single: 2_910_00, married: 5_820_00 }),
     federalCapCents: 8_750_00,

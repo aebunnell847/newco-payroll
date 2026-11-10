@@ -33,6 +33,25 @@
 const { formChecker, onFile, PERIOD_BY_COUNT } = require("./formUtil");
 
 const TABLES = Object.freeze({
+  2025: Object.freeze({
+    rateBp: 380,
+    legacyAllowanceCents: 40_00,
+    deductionCents: Object.freeze({
+      current: Object.freeze({
+        A: Object.freeze({ daily: 46_15, weekly: 230_77, biweekly: 461_54, semimonthly: 500_00, monthly: 1_000_00, annual: 12_000_00 }),
+        B: Object.freeze({ daily: 69_42, weekly: 347_12, biweekly: 694_23, semimonthly: 752_08, monthly: 1_504_17, annual: 18_050_00 }),
+        C: Object.freeze({ daily: 92_50, weekly: 462_50, biweekly: 925_00, semimonthly: 1_002_08, monthly: 2_004_17, annual: 24_050_00 }),
+      }),
+      legacy: Object.freeze({
+        A: Object.freeze({ daily: 46_15, weekly: 230_77, biweekly: 461_54, semimonthly: 500_00, monthly: 1_000_00, annual: 12_000_00 }),
+        B: Object.freeze({ daily: 92_50, weekly: 462_50, biweekly: 925_00, semimonthly: 1_002_08, monthly: 2_004_17, annual: 24_050_00 }),
+      }),
+    }),
+    sources: Object.freeze([
+      "Iowa DOR, Iowa Individual Income Tax Withholding Formula Effective January 1, 2025 (released Nov. 2024): https://revenue.iowa.gov/media/61/download",
+      "Iowa DOR, 2025 Withholding Tax Information: https://revenue.iowa.gov/taxes/tax-guidance/withholding-tax/iowa-withholding-tax-information/2025-withholding-tax-information",
+    ]),
+  }),
   2026: Object.freeze({
     rateBp: 380,
     legacyAllowanceCents: 40_00,

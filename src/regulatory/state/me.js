@@ -32,6 +32,29 @@ const { formChecker, onFile } = require("./formUtil");
 const { fromBaseTable } = require("./brackets");
 
 const TABLES = Object.freeze({
+  2025: Object.freeze({
+    allowanceCents: 5_150_00,
+    standardDeduction: Object.freeze({
+      single: Object.freeze({ fullCents: 12_150_00, phaseStartCents: 100_000_00, zeroAtCents: 175_000_00 }),
+      married: Object.freeze({ fullCents: 27_150_00, phaseStartCents: 200_050_00, zeroAtCents: 350_050_00 }),
+    }),
+    schedules: Object.freeze({
+      single: Object.freeze([
+        [0, 0, 580],
+        [26_800_00, 1_554_00, 675],
+        [63_450_00, 4_028_00, 715],
+      ]),
+      married: Object.freeze([
+        [0, 0, 580],
+        [53_600_00, 3_109_00, 675],
+        [126_900_00, 8_057_00, 715],
+      ]),
+    }),
+    // No surcharge before 2026.
+    sources: Object.freeze([
+      "Maine Revenue Services, 2025 Withholding Tables for Individual Income Tax, as archived Mar. 5, 2025: https://web.archive.org/web/20250305233852/https://www.maine.gov/revenue/sites/maine.gov.revenue/files/inline-files/25_wh_tab_instr.pdf",
+    ]),
+  }),
   2026: Object.freeze({
     allowanceCents: 5_300_00,
     standardDeduction: Object.freeze({
@@ -87,7 +110,7 @@ function compute({ taxYear, wagesCents, payPeriodsPerYear, form }) {
   if (income > 0) {
     annualTax =
       fromBaseTable(income, t.schedules[status]) +
-      (Math.max(0, income - t.surcharge[status]) * t.surcharge.rateBp) / 10_000;
+      (t.surcharge ? (Math.max(0, income - t.surcharge[status]) * t.surcharge.rateBp) / 10_000 : 0);
   }
   const extra = has ? form.additionalWithholdingCents ?? 0 : 0;
   return {

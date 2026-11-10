@@ -25,6 +25,14 @@
 const { formChecker, onFile } = require("./formUtil");
 
 const TABLES = Object.freeze({
+  2025: Object.freeze({
+    standardDeductionCents: 3_270_00,
+    rateBp: 400,
+    sources: Object.freeze([
+      "KY DOR, 2025 Kentucky Withholding Tax Formula 42A003 (TCF)(12-2024): https://revenue.ky.gov/Forms/Withholding%20Computer%20Formula.pdf",
+      "KY DOR, 2025 42A003(T)(12-24) Withholding Tax Tables: https://revenue.ky.gov/Documents/2025_42A003(T)(12-24)-%20WH%20Tax%20Tables.pdf",
+    ]),
+  }),
   2026: Object.freeze({
     standardDeductionCents: 3_360_00,
     rateBp: 350,

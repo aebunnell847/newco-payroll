@@ -30,6 +30,22 @@ const { formChecker, onFile } = require("./formUtil");
 const { fromBaseTable } = require("./brackets");
 
 const TABLES = Object.freeze({
+  2025: Object.freeze({
+    deduction: Object.freeze({
+      single: Object.freeze({ fullCents: 6_702_00, phaseStartCents: 17_780_00, zeroAtCents: 73_630_00, phaseBp: 1_200 }),
+      married: Object.freeze({ fullCents: 9_461_00, phaseStartCents: 25_727_00, zeroAtCents: 73_032_00, phaseBp: 2_000 }),
+    }),
+    exemptionCents: 400_00,
+    annualTable: Object.freeze([
+      [0, 0, 354],
+      [12_760_00, 451_70, 465],
+      [25_520_00, 1_045_04, 530],
+      [280_950_00, 14_582_83, 765],
+    ]),
+    sources: Object.freeze([
+      "Wisconsin DOR, Publication W-166 Withholding Tax Guide (6/24; the edition in force in 2025, same alternate method as 2026), as archived Apr. 21, 2025: https://web.archive.org/web/20250421223800/https://www.revenue.wi.gov/DOR%20Publications/pb166.pdf",
+    ]),
+  }),
   2026: Object.freeze({
     deduction: Object.freeze({
       single: Object.freeze({ fullCents: 6_702_00, phaseStartCents: 17_780_00, zeroAtCents: 73_630_00, phaseBp: 1_200 }),

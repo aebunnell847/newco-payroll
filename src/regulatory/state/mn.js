@@ -26,6 +26,29 @@ const { formChecker, onFile } = require("./formUtil");
 const { fromBaseTable } = require("./brackets");
 
 const TABLES = Object.freeze({
+  2025: Object.freeze({
+    allowanceCents: 5_200_00,
+    dailyPeriods: 360,
+    charts: Object.freeze({
+      single: Object.freeze([
+        [0, 0, 0],
+        [4_550_00, 0, 535],
+        [37_120_00, 1_742_50, 680],
+        [111_540_00, 6_803_06, 785],
+        [203_180_00, 13_996_80, 985],
+      ]),
+      married: Object.freeze([
+        [0, 0, 0],
+        [14_300_00, 0, 535],
+        [61_920_00, 2_547_67, 680],
+        [203_480_00, 12_173_75, 785],
+        [344_710_00, 23_260_31, 985],
+      ]),
+    }),
+    sources: Object.freeze([
+      "Minnesota DOR, 2025 Minnesota Income Tax Withholding Instruction Booklet and Tax Tables, Computer Formula: https://www.revenue.state.mn.us/sites/default/files/2024-12/wh-inst-25_0.pdf",
+    ]),
+  }),
   2026: Object.freeze({
     allowanceCents: 5_300_00,
     dailyPeriods: 360,

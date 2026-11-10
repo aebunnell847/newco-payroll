@@ -243,46 +243,46 @@ with its own sources and tax years.
 
 | State | Method | Wages taxed | No certificate on file | Years |
 |---|---|---|---|---|
-| AL | Jan. 2026 booklet formula: GI less standard deduction (phased), **annual federal withholding**, personal exemption, dependents; 2% / 4% / 5%; A-4 | Gross minus pre-tax 401(k) (booklet) | Zero exemptions (booklet) | 2026 |
+| AL | Jan. 2026 booklet formula: GI less standard deduction (phased), **annual federal withholding**, personal exemption, dependents; 2% / 4% / 5%; A-4 | Gross minus pre-tax 401(k) (booklet) | Zero exemptions (booklet) | 2025, 2026 |
 | AR | 2026 formula method: $2,470 standard deduction, $50 midrange, generated brackets to 3.7%, $29 per exemption credit; AR4EC | Gross minus pre-tax 401(k) (DFA instructions) | No exemptions (AR4EC) | 2026 |
-| AZ | Elected % of wages on Form A-4 (0.5%-3.5% or zero) plus extra | Gross minus pre-tax 401(k) (A-4 instructions: federal W-2 box 1) | 2.0% default (A-4 instructions) | 2026 |
+| AZ | Elected % of wages on Form A-4 (0.5%-3.5% or zero) plus extra | Gross minus pre-tax 401(k) (A-4 instructions: federal W-2 box 1) | 2.0% default (A-4 instructions) | 2025, 2026 |
 | CA | EDD Method B, annual method, DE 4 | Gross minus pre-tax 401(k) (EDD DE 231A) | Single, 0 allowances (DE 44) | 2026 |
 | CO | DR 1098 worksheet: 4.40% after an annual allowance; DR 0004 or the federal W-4 | Gross minus pre-tax 401(k) (Wage Withholding Tax Guide) | As a "single" W-4: $5,500 allowance (DR 1098). A pre-2020 W-4 also gets $5,500 (DR 1098 is silent; flagged) | 2026 |
 | CT | TPG-211 calculation rules: Tables A-E by CT-W4 code (generated), no percentage method | Gross minus pre-tax 401(k) (Circular CT) | 6.99% flat, no exemption (Circular CT) | 2025, 2026 |
 | DE | Employer's Guide annualized formula: $3,250 / $6,500 deduction, 0%-6.6%, $110 per exemption credit | Gross minus pre-tax 401(k) | Single, no allowances (Guide 15(a)); a pre-2020 federal W-4's allowances if on file | 2025, 2026 |
 | GA | 2026 Guide percentage method: 4.99% after Table F standard deduction and $5,000 per allowance; G-4 | Gross minus pre-tax 401(k) (Guide, O.C.G.A. 48-7-27) | Single, zero allowances (the Guide also allows using the federal election; flagged) | 2026 (5.19%, $12,000 / $24,000, $4,000 before May 11) |
 | HI | Booklet A annualized method: $1,144 per allowance + $4,350 extra, 1.4%-7.9% | Gross minus pre-tax 401(k) (HRS 235-61) | Single, no allowances (Booklet A) | 2026 |
-| IA | 2026 formula T1-T4: 3.80% after a per-period deduction, minus allowance $ / periods; IA W-4 (2024+ and 2023-or-earlier forms) | Gross minus pre-tax 401(k) (formula, Step 1) | Column A, no allowances | 2026 |
+| IA | 2026 formula T1-T4: 3.80% after a per-period deduction, minus allowance $ / periods; IA W-4 (2024+ and 2023-or-earlier forms) | Gross minus pre-tax 401(k) (formula, Step 1) | Column A, no allowances | 2025, 2026 |
 | ID | EPB00744 percentage table: 5.3% over $16,100 / $32,200 a year, rounded to the dollar; ID W-4 status A/B/C | Gross minus pre-tax 401(k) | Single chart (unstated by Idaho; flagged) | 2026 ($15,000 / $30,000 and child tax credit allowances before Jul. 23) |
 | IL | IL-700-T automated method, IL-W-4 | Gross minus pre-tax 401(k) (86 Ill. Adm. Code 100.7010) | No exemptions (IL-W-4) | 2025, 2026 |
 | IN | Departmental Notice #1: 2.95% state **plus county tax** (92 counties) after Table A-C deduction constants; WH-4 | Gross minus pre-tax 401(k) (IC 6-3-1-3.5) | State tax with no exemptions and **no county tax** (county unknown without a WH-4; flagged) | 2026 |
 | KS | Percentage tables (generated, 8 periods) after $9,160 / $18,320 + $2,320 exemptions / periods; K-4 | Gross minus pre-tax 401(k) (KW-100) | Single, no allowances (KW-100) | 2025, 2026 |
-| KY | 42A003 formula: 3.5% after the $3,360 standard deduction; K-4 (exempt, extra only) | Gross minus pre-tax 401(k) (42A003: IRC 3401 wages) | Formula with no extra | 2026 |
-| LA | R-1306 computer formula: 3.09% after $12,875 / $25,750 / N; L-4 | Gross minus pre-tax 401(k) | No standard deduction (L-4) | 2026 |
+| KY | 42A003 formula: 3.5% after the $3,360 standard deduction; K-4 (exempt, extra only) | Gross minus pre-tax 401(k) (42A003: IRC 3401 wages) | Formula with no extra | 2025, 2026 |
+| LA | R-1306 computer formula: 3.09% after $12,875 / $25,750 / N; L-4 | Gross minus pre-tax 401(k) | No standard deduction (L-4) | 2025, 2026 |
 | MA | Circular M (2026) percentage method: wages - employee FICA (max $2,000/yr) - exemption factors, 5% / 9% over $1,107,750, less head-of-household and blindness values; M-4 | Gross minus pre-tax 401(k) (DOR; Roth stays taxable) | Zero exemptions (by analogy to M-4P; flagged) | 2026 |
 | MD | 2026 percentage method, one generated table set per local rate (state + **county** combined); county from the MW507, tiered Anne Arundel / Frederick by taxable income | Gross minus pre-tax 401(k) | Single, no exemptions, highest local table (unstated; flagged) | 2026 |
-| ME | Aug. 2026 revised percentage method: $5,300 per allowance, phased standard deduction, 5.8%-7.15% + 2% surcharge over $1M / $1.5M | Gross minus pre-tax 401(k) | Single, no allowances (booklet) | 2026 (revision applied to all 2026 pay dates; flagged) |
+| ME | Aug. 2026 revised percentage method: $5,300 per allowance, phased standard deduction, 5.8%-7.15% + 2% surcharge over $1M / $1.5M | Gross minus pre-tax 401(k) | Single, no allowances (booklet) | 2025; 2026 (revision applied to all 2026 pay dates; flagged) |
 | MI | Form 446 direct percentage: 4.25% after exemptions x $5,900 ($5,800 in 2025); MI-W4 | Gross minus pre-tax 401(k) (Form 446: follows federal) | Zero exemptions (Form 446) | 2025, 2026 |
-| MN | 2026 computer formula: $5,300 per allowance, 5.35%-9.85% (daily = 360); W-4MN | Gross minus pre-tax 401(k) | Single, zero allowances (booklet) | 2026 |
-| MO | 2026 formula: annual rates 0%-4.7% after $16,100 / $32,200 / $24,150, rounded to the dollar; MO W-4 | Gross minus pre-tax 401(k) (formula: Pub 15 wages) | Single (Form 4282) | 2026 |
-| MS | Pub 89-700 annualized: 0% on first $10,000, 4.0% after exemption + standard deduction, rounded to the dollar; 89-350 | Gross minus pre-tax 401(k) (**not confirmed** from a Mississippi source; flagged) | Zero exemption, single (Pub 89-700) | 2026 |
+| MN | 2026 computer formula: $5,300 per allowance, 5.35%-9.85% (daily = 360); W-4MN | Gross minus pre-tax 401(k) | Single, zero allowances (booklet) | 2025, 2026 |
+| MO | 2026 formula: annual rates 0%-4.7% after $16,100 / $32,200 / $24,150, rounded to the dollar; MO W-4 | Gross minus pre-tax 401(k) (formula: Pub 15 wages) | Single (Form 4282) | 2025, 2026 |
+| MS | Pub 89-700 annualized: 0% on first $10,000, 4.0% after exemption + standard deduction, rounded to the dollar; 89-350 | Gross minus pre-tax 401(k) (**not confirmed** from a Mississippi source; flagged) | Zero exemption, single (Pub 89-700) | 2025, 2026 |
 | MT | 2026 guide formula W = A + B x (G - C), generated (3 statuses x 6 periods), 4.7% / 5.65%; MW-4 | Gross minus pre-tax 401(k) | Single table (unstated; flagged) | 2026 |
-| NC | NC-30 annualized method: 4.09% after the standard deduction and $2,500 per allowance, rounded to the dollar; NC-4 | Gross minus pre-tax 401(k) (NC-30: IRC 3401 wages) | Single, no allowances (NC-30) | 2026 |
-| ND | 2026 booklet: federal W-4 status, annual 1.95% / 2.50% brackets, rounded to the dollar; pre-2020 W-4s less $5,050 per allowance | Gross minus pre-tax 401(k) | Single (booklet) | 2026 |
+| NC | NC-30 annualized method: 4.09% after the standard deduction and $2,500 per allowance, rounded to the dollar; NC-4 | Gross minus pre-tax 401(k) (NC-30: IRC 3401 wages) | Single, no allowances (NC-30) | 2025, 2026 |
+| ND | 2026 booklet: federal W-4 status, annual 1.95% / 2.50% brackets, rounded to the dollar; pre-2020 W-4s less $5,050 per allowance | Gross minus pre-tax 401(k) | Single (booklet) | 2025, 2026 |
 | NE | Circular EN percentage tables (generated, 8 periods) after allowance values, with the 1.5% / 50% minimum; W-4N | Gross minus pre-tax 401(k) (federal taxable wages) | Pre-2020 federal W-4's status and allowances, else single with none (Circular EN) | 2026 |
 | NJ | Rate Tables A-E per payroll period, NJ-W4 (A for single/separate, B for joint/HoH/widow(er), or the table chosen on line 3) | Gross minus 401(k) up to the federal limit (NJ-WT) | Rate A, 0 allowances (current NJ-WT is silent; this is the higher-withholding choice) | 2025, 2026 |
 | NM | FYI-104 percentage tables (generated; single / married / HoH, no allowances); federal W-4 status | Gross minus pre-tax 401(k) | Single (unstated; flagged) | 2026 |
 | NY | NYS-50-T Method II per pay frequency, Method III top rates, IT-2104; **plus NYC resident tax and Yonkers resident surcharge** | Gross minus pre-tax 401(k) (NYS-50) | Single, 0 allowances; a pre-2020 federal W-4's allowances if that's what's on file (NYS-50); no city tax | 2026 |
 | OH | Percentage Method effective Aug. 1, 2026: $650 / periods per exemption, 1.6% / 2.99% / 3.4%; IT 4 | Gross minus pre-tax 401(k) | Zero exemptions (unstated; flagged) | 2026 (Oct. 2025 tables, 1.775% / 2.99% / 3.64%, before Aug. 1) |
 | OK | OW-2 percentage tables (generated, 8 periods) after $1,000 per allowance / periods, rounded to the dollar; OK-W-4 | Gross minus pre-tax 401(k) | Single, no allowances (OAC 710:90-3-3) | 2026 |
-| OR | 150-206-436 formula: wages - federal tax withheld (capped, phased) - standard deduction, 4.75%-9.9%, $263 per allowance; OR-W-4 | Gross minus pre-tax 401(k) (FAQ 6) | 8% of wages (HB 2119) | 2026 |
+| OR | 150-206-436 formula: wages - federal tax withheld (capped, phased) - standard deduction, 4.75%-9.9%, $263 per allowance; OR-W-4 | Gross minus pre-tax 401(k) (FAQ 6) | 8% of wages (HB 2119) | 2025, 2026 |
 | PA | Flat 3.07% | **Gross; 401(k) deferrals are taxed** (REV-415) | No certificate exists | 2025, 2026 |
 | RI | 2026 percentage method (generated): $1,000 / periods per exemption, $0 above $290,800 / periods; 3.75%-5.99%; RI W-4 | Gross minus pre-tax 401(k) | Zero exemptions (unstated; flagged) | 2026 |
-| SC | WH-1603F: $5,000 per allowance, 10% standard deduction up to $7,500 (with 1+ allowances), 0% / 3% / 6%; SC W-4 | Gross minus pre-tax 401(k) | Zero allowances (WH-1603) | 2026 |
+| SC | WH-1603F: $5,000 per allowance, 10% standard deduction up to $7,500 (with 1+ allowances), 0% / 3% / 6%; SC W-4 | Gross minus pre-tax 401(k) | Zero allowances (WH-1603) | 2025, 2026 |
 | UT | Pub 14 schedules: 4.45% less a base allowance phased out at 1.3%, whole dollars; federal W-4 status | Gross minus pre-tax 401(k) (Pub 14: IRC 3401(a)) | Single (no W-4) | 2026 (Rev. 4/25 schedules at 4.5% before Jun. 1) |
 | VA | Formula for wages paid after July 1, 2025: $8,750 + $930 / $800 exemptions, 2%-5.75%; VA-4 | Gross minus pre-tax 401(k) (Guide: federal-exempt is VA-exempt) | No exemptions (Guide) | 2026 (deduction sunsets after 2026) |
 | VT | GB-1210-2026 percentage tables (generated), allowance per table; W-4VT | Gross minus pre-tax 401(k) (IRC 3401) | Federal W-4 status (+30% of federal extra), else single (flagged) | 2026 |
-| WI | W-166 alternate method: phased deduction, $400 per exemption, 3.54%-7.65%; WT-4 | Gross minus pre-tax 401(k) | Zero exemptions (W-166), single | 2026 |
+| WI | W-166 alternate method: phased deduction, $400 per exemption, 3.54%-7.65%; WT-4 | Gross minus pre-tax 401(k) | Zero exemptions (W-166), single | 2025, 2026 |
 | WV | IT-100.2A (March 2026, after the 5% cut) two-earner or optional one-earner tables (generated); IT-104 | Gross minus pre-tax 401(k) | Two-earner, zero exemptions (unstated; flagged) | 2026 |
 | AK, FL, NH, NV, SD, TN, TX, WA, WY | No individual income tax on wages (each cited in `noIncomeTax.js`) | n/a | n/a | 2025, 2026 |
 

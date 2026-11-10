@@ -33,6 +33,19 @@ const { formChecker, onFile } = require("./formUtil");
 const STATUSES = ["single", "headOfFamily", "marriedSpouseNotEmployed", "marriedBothEmployed"];
 
 const TABLES = Object.freeze({
+  2025: Object.freeze({
+    zeroBracketCents: 10_000_00,
+    rateBp: 440,
+    standardDeductionCents: Object.freeze({
+      single: 2_300_00,
+      headOfFamily: 3_400_00,
+      marriedSpouseNotEmployed: 4_600_00,
+      marriedBothEmployed: 2_300_00,
+    }),
+    sources: Object.freeze([
+      "MS DOR, Pub 89-700-24-8 (Rev. 08/24) Withholding Income Tax Tables and Employer Instructions (tables effective January 1, 2025), as archived Feb. 5, 2025: https://web.archive.org/web/20250205042424/https://www.dor.ms.gov/sites/default/files/Business/89700241.pdf",
+    ]),
+  }),
   2026: Object.freeze({
     zeroBracketCents: 10_000_00,
     rateBp: 400,

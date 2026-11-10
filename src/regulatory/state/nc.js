@@ -22,6 +22,14 @@ const { formChecker, onFile } = require("./formUtil");
 const STATUSES = ["single", "married", "surviving", "headOfHousehold"];
 
 const TABLES = Object.freeze({
+  2025: Object.freeze({
+    withholdingRateBp: 435,
+    allowanceCents: 2_500_00,
+    standardDeductionCents: Object.freeze({ standard: 12_750_00, headOfHousehold: 19_125_00 }),
+    sources: Object.freeze([
+      "NCDOR, NC-30 2025 Income Tax Withholding Tables and Instructions for Employers, as archived June 2, 2025: https://web.archive.org/web/20250602220352/https://www.ncdor.gov/income-tax-withholding-tables-and-instructions-employers/open",
+    ]),
+  }),
   2026: Object.freeze({
     withholdingRateBp: 409,
     allowanceCents: 2_500_00,
