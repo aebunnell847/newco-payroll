@@ -246,7 +246,7 @@ with its own sources and tax years.
 | AL | Jan. 2026 booklet formula: GI less standard deduction (phased), **annual federal withholding**, personal exemption, dependents; 2% / 4% / 5%; A-4 | Gross minus pre-tax 401(k) (booklet) | Zero exemptions (booklet) | 2025, 2026 |
 | AR | 2026 formula method: $2,470 standard deduction, $50 midrange, generated brackets to 3.7%, $29 per exemption credit; AR4EC | Gross minus pre-tax 401(k) (DFA instructions) | No exemptions (AR4EC) | 2025, 2026 |
 | AZ | Elected % of wages on Form A-4 (0.5%-3.5% or zero) plus extra | Gross minus pre-tax 401(k) (A-4 instructions: federal W-2 box 1) | 2.0% default (A-4 instructions) | 2025, 2026 |
-| CA | EDD Method B, annual method, DE 4 | Gross minus pre-tax 401(k) (EDD DE 231A) | Single, 0 allowances (DE 44) | 2026 |
+| CA | EDD Method B, annual method, DE 4 | Gross minus pre-tax 401(k) (EDD DE 231A) | Single, 0 allowances (DE 44) | 2026, 2027 |
 | CO | DR 1098 worksheet: 4.40% after an annual allowance; DR 0004 or the federal W-4 | Gross minus pre-tax 401(k) (Wage Withholding Tax Guide) | As a "single" W-4: $5,500 allowance (DR 1098). A pre-2020 W-4 also gets $5,500 (DR 1098 is silent; flagged) | 2026 |
 | CT | TPG-211 calculation rules: Tables A-E by CT-W4 code (generated), no percentage method | Gross minus pre-tax 401(k) (Circular CT) | 6.99% flat, no exemption (Circular CT) | 2025, 2026 |
 | DE | Employer's Guide annualized formula: $3,250 / $6,500 deduction, 0%-6.6%, $110 per exemption credit | Gross minus pre-tax 401(k) | Single, no allowances (Guide 15(a)); a pre-2020 federal W-4's allowances if on file | 2025, 2026 |
@@ -288,9 +288,12 @@ with its own sources and tax years.
 
 How the figures are checked:
 - **California.** `tools/state/generate_ca_method_b.py` generates the
-  tables from EDD's own PDF. EDD's worked Examples A, B, E and F match to
-  the cent. C and D come within 2 cents, because EDD worked those with its
-  per-period tables while this uses the annual method EDD allows.
+  tables from EDD's own PDF. For 2026, EDD's worked Examples A, B, E and
+  F match to the cent; C and D come within 2 cents, because EDD worked
+  those with its per-period tables while this uses the annual method EDD
+  allows. For 2027, A, E and F match to the cent and B, C and D come
+  within 2 cents for the same reason (B $1.31 vs $1.33, C $5.95 vs $5.97,
+  D $1.03 vs $1.02).
 - **Illinois.** Both years' booklet examples match to the cent.
 - **Kentucky.** The 42A003 monthly example matches to the cent. The
   biweekly one prints $1,247.40 / 26 as "$47"; this keeps the cent

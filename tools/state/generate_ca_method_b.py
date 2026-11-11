@@ -10,8 +10,8 @@ prints, as JSON, the ANNUAL payroll-period values the code uses:
 All amounts in cents; rates in thousandths of a percent (1.100% -> 1100).
 
     pip install pypdf==5.1.0
-    curl -o 26methb.pdf https://edd.ca.gov/siteassets/files/pdf_pub_ctr/26methb.pdf
-    python generate_ca_method_b.py 26methb.pdf > ca-2026.json
+    curl -o 27methb.pdf https://edd.ca.gov/siteassets/files/pdf_pub_ctr/27methb.pdf
+    python generate_ca_method_b.py 27methb.pdf > ca-2027.json
 
 Compare with the arrays in ca.js. The tables are never hand-typed.
 """
@@ -70,11 +70,13 @@ for l in block:
     if current is None:
         continue
     # top rows wrap: "$1,000,000 " / "and over N/A 14.630% $1,000,000 $114,220.27"
+    # (the 2027 edition drops the "N/A": "and over 14.630% $1,000,000 ...")
     if re.fullmatch(MONEY, l):
         pending = l
         continue
-    if l.startswith("and over N/A") and pending:
-        l = pending + " " + l.replace("and over N/A", "")
+    top = re.match(r"and over(?: N/A)?\s+", l)
+    if top and pending:
+        l = pending + " " + l[top.end():]
         pending = ""
     m = row_re.fullmatch(l)
     if m:
@@ -84,6 +86,12 @@ for l in block:
 
 for name, rows in brackets.items():
     assert len(rows) == 10, (name, len(rows))
+    assert rows[0][:2] == [0, 0], (name, rows[0])
+    assert all(a[0] < b[0] and a[2] < b[2] for a, b in zip(rows, rows[1:])), (name, rows)
+    # each bracket's "plus" follows from the one below (to within EDD's rounding)
+    for a, b in zip(rows, rows[1:]):
+        expect = a[1] + (b[0] - a[0]) * a[2] / 100_000
+        assert abs(b[1] - expect) <= 1, (name, a, b, expect)
 
 print(json.dumps({
     "lowIncomeExemptionCents": low_income,
