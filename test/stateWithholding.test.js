@@ -98,6 +98,68 @@ describe("California (EDD Method B, 2026)", () => {
   }
 });
 
+describe("California (EDD Method B, 2027)", () => {
+  // EDD's own examples, "California Withholding Schedules for 2027 - Method B"
+  // (https://edd.ca.gov/siteassets/files/pdf_pub_ctr/27methb.pdf).
+  const run27 = (wagesCents, n, form) => run("CA", wagesCents, n, form, { taxYear: 2027 });
+  const married4 = { filingStatus: "married", regularAllowances: 4 };
+
+  it("pins the 2027 annual constants (Tables 1-4) to the schedule", () => {
+    const t = ca.TABLES[2027];
+    expect(t.lowIncomeExemptionCents).to.deep.equal({
+      single: 19_528_00, marriedZeroOrOne: 19_528_00, marriedTwoOrMore: 39_056_00, headOfHousehold: 39_056_00,
+    });
+    expect(t.standardDeductionCents).to.deep.equal({
+      single: 5_900_00, marriedZeroOrOne: 5_900_00, marriedTwoOrMore: 11_800_00, headOfHousehold: 11_800_00,
+    });
+    expect(t.estimatedDeductionPerAllowanceCents).to.equal(1_000_00);
+    expect(t.exemptionCreditPerAllowanceCents).to.equal(173_80);
+  });
+
+  it("Example A: weekly $210, single, 1 allowance -> under the low-income exemption, $0", () => {
+    expect(run27(210_00, 52, { filingStatus: "single", regularAllowances: 1 }).stateCents).to.equal(0);
+  });
+
+  it("Example E: semi-monthly $2,400, married, 4 allowances -> $2.52 (annual method, as EDD works it)", () => {
+    // 57,600 - 11,800 = 45,800; 252.03 + 2.2% x (45,800 - 22,912) = 755.57; - 4 x 173.80 = 60.37; / 24 = 2.52
+    const r = run27(2_400_00, 24, married4);
+    expect(r.stateCents).to.equal(2_52);
+    expect(r.lines.taxable).to.equal(45_800_00);
+  });
+
+  it("Example F: $57,000/yr paid monthly, married, 4 allowances -> $3.93 (annual method, as EDD works it)", () => {
+    // 57,000 - 11,800 = 45,200; 252.03 + 2.2% x (45,200 - 22,912) = 742.37; - 695.20 = 47.17; / 12 = 3.93
+    expect(run27(4_750_00, 12, married4).stateCents).to.equal(3_93);
+  });
+
+  it("Examples B, C and D: within 2 cents (EDD worked these with per-period tables; this uses the annual method EDD allows)", () => {
+    // EDD: B $1.33, C $5.97, D $1.02. Annualized: B $1.31, C $5.95, D $1.03 - the
+    // per-period tables round their brackets and credits to whole cents/dollars.
+    const b = run27(1_600_00, 26, { filingStatus: "married", regularAllowances: 2, estimatedDeductionAllowances: 1 }).stateCents;
+    const c = run27(5_500_00, 12, { filingStatus: "married", regularAllowances: 5 }).stateCents;
+    const d = run27(950_00, 52, { filingStatus: "headOfHousehold", regularAllowances: 3 }).stateCents;
+    expect(Math.abs(b - 1_33)).to.be.at.most(2);
+    expect(Math.abs(c - 5_97)).to.be.at.most(2);
+    expect(Math.abs(d - 1_02)).to.be.at.most(2);
+  });
+
+  it("leaves 2026 untouched: the 2026 Example E still gives $4.13", () => {
+    expect(run("CA", 2_400_00, 24, married4).stateCents).to.equal(4_13);
+  });
+
+  for (const [status, rows] of Object.entries(ca.TABLES[2027].brackets)) {
+    it(`annual ${status} brackets (2027): each bracket's base follows from the one before, to the cent`, () => {
+      expect(rows).to.have.length(10);
+      for (let i = 1; i < rows.length; i++) {
+        const [prevOver, prevPlus, prevRate] = rows[i - 1];
+        const [over, plus] = rows[i];
+        const implied = prevPlus + ((over - prevOver) * prevRate) / 100_000;
+        expect(Math.abs(implied - plus), `row ${i}`).to.be.at.most(1);
+      }
+    });
+  }
+});
+
 describe("Illinois (IL-700-T automated payroll method)", () => {
   const alice = { line1Allowances: 2, line2Allowances: 2 };
 
