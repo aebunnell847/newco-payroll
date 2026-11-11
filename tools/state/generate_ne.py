@@ -5,9 +5,14 @@ Percentage Method Tables" (Circular EN) and prints Tables 1-8 (single and
 married) as JSON: {"effective": ..., "tables": {period: {single|married:
 [[overCents, baseCents, rateBasisPoints], ...]}}}. Never hand-typed.
 
+Given the Circular EN Instructions as a second argument, it also prints
+"allowanceCents": the "Withholding Allowance Table" (value of one allowance
+per payroll period), checked against annual / periods-per-year.
+
     pip install pypdf==5.1.0
-    curl -O https://revenue.nebraska.gov/sites/default/files/doc/business/Cir_En_2025/2026_percent.pdf
-    python generate_ne.py 2026_percent.pdf > ne.json
+    curl -O https://revenue.nebraska.gov/sites/default/files/doc/business/Cir_En_2026/2027_percent.pdf
+    curl -O https://revenue.nebraska.gov/sites/default/files/doc/business/Cir_En_2026/2027_instruct.pdf
+    python generate_ne.py 2027_percent.pdf 2027_instruct.pdf > ne.json
 """
 import json
 import re
@@ -60,8 +65,9 @@ for line in text.splitlines():
         tables[period][status].append([cents(over), cents(base), round(float(rate) * 100)])
 
 assert sorted(tables) == sorted(PERIODS.values()), sorted(tables)
-# Every table uses the same rate ladder (2026: 2.26 3.22 4.21 4.35 4.48 4.60;
-# 2025: 2.26 3.22 4.91 5.07 5.23 5.37), increasing, starting at a zero base.
+# Every table uses the same rate ladder (2027: 2.26 3.22 3.69 3.81 3.93 4.03;
+# 2026: 2.26 3.22 4.21 4.35 4.48 4.60; 2025: 2.26 3.22 4.91 5.07 5.23 5.37),
+# increasing, starting at a zero base.
 ladder = [r[2] for r in tables["weekly"]["single"]]
 assert ladder[0] == 0 and all(a < b for a, b in zip(ladder, ladder[1:])), ladder
 for p, by in tables.items():
@@ -69,4 +75,36 @@ for p, by in tables.items():
         assert [r[2] for r in rows] == ladder, (p, s, rows)
         assert rows[1][1] == 0, (p, s)
 
-print(json.dumps({"effective": eff.group(1), "tables": tables}))
+# Each row's base follows from the row below it (to the cent).
+for p, by in tables.items():
+    for s, rows in by.items():
+        for a, b in zip(rows[1:], rows[2:]):
+            assert abs(a[1] + (b[0] - a[0]) * a[2] / 10_000 - b[1]) <= 1, (p, s, a, b)
+
+out = {"effective": eff.group(1), "tables": tables}
+
+if len(sys.argv) > 2:
+    itext = "\n".join(p.extract_text(extraction_mode="layout") for p in PdfReader(sys.argv[2]).pages)
+    ieff = re.search(r"Withholding\s+Allowance\s+Table\s+Effective ([A-Z][a-z]+ \d+, \d{4})", itext)
+    assert ieff and ieff.group(1) == eff.group(1), ("allowance table effective date", ieff and ieff.group(1))
+    NAMES = {
+        "Daily or Miscellaneous": ("daily", 260),
+        "Weekly": ("weekly", 52),
+        "Biweekly": ("biweekly", 26),
+        "Semimonthly": ("semimonthly", 24),
+        "Monthly": ("monthly", 12),
+        "Quarterly": ("quarterly", 4),
+        "Semiannually": ("semiannual", 2),
+        "Annually": ("annual", 1),
+    }
+    allowance = {}
+    for name, (key, _) in NAMES.items():
+        m = re.search(rf"^\s*{name}\s*\.{{3,}}\s*\$?\s*([\d,]+\.\d\d)\s*$", itext, re.M)
+        assert m, name
+        allowance[key] = cents(m.group(1))
+    for key, n in NAMES.values():
+        # half-up: 2,510 / 24 = 104.583 -> 104.58; / 12 = 209.1667 -> 209.17
+        assert allowance[key] == (2 * allowance["annual"] + n) // (2 * n), (key, allowance)
+    out["allowanceCents"] = allowance
+
+print(json.dumps(out))
