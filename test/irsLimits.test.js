@@ -13,6 +13,31 @@ const {
 } = require("../src/regulatory/irsLimits");
 
 describe("IRS deferral limits table", () => {
+  it("matches IRS Notice 2026-66 for 2027", () => {
+    const l = getDeferralLimits(2027);
+    expect(l.taxYear).to.equal(2027);
+    expect(l.electiveDeferralLimitCents).to.equal(25_500_00);
+    expect(l.catchUpLimitCents).to.equal(8_500_00);
+    expect(l.catchUpLimitAge60to63Cents).to.equal(11_750_00);
+    expect(l.rothCatchUpRequirementApplies).to.equal(true);
+    expect(l.rothCatchUpWageThresholdCents).to.equal(155_000_00);
+    expect(l.annualAdditionsLimitCents).to.equal(75_000_00);
+    expect(l.compensationLimitCents).to.equal(375_000_00);
+    expect(l.sources.join(" ")).to.contain("n-26-66.pdf");
+  });
+
+  it("2026 entry equals the 'increased from' figures Notice 2026-66 states", () => {
+    // The notice states each 2027 limit as an increase from the 2026 one;
+    // this cross-checks the 2026 entry against a second IRS source.
+    const l = getDeferralLimits(2026);
+    expect(l.electiveDeferralLimitCents).to.equal(24_500_00);
+    expect(l.catchUpLimitCents).to.equal(8_000_00);
+    expect(l.catchUpLimitAge60to63Cents).to.equal(11_250_00);
+    expect(l.rothCatchUpWageThresholdCents).to.equal(150_000_00);
+    expect(l.annualAdditionsLimitCents).to.equal(72_000_00);
+    expect(l.compensationLimitCents).to.equal(360_000_00);
+  });
+
   it("matches IRS Notice 2025-67 for 2026", () => {
     const l = getDeferralLimits(2026);
     expect(l.electiveDeferralLimitCents).to.equal(24_500_00);
@@ -48,6 +73,7 @@ describe("IRS deferral limits table", () => {
 
   it("throws for a year it has no source for, instead of falling back", () => {
     expect(() => getDeferralLimits(2024)).to.throw(/no sourced IRS deferral limits for tax year 2024/);
+    expect(() => getDeferralLimits(2028)).to.throw(/no sourced IRS deferral limits for tax year 2028/);
     expect(() => getDeferralLimits("2026")).to.throw(/integer year/);
   });
 });
@@ -88,6 +114,18 @@ describe("annualDeferralCapCents", () => {
     expect(cap.totalCents).to.equal(24_500_00 + 11_250_00);
     expect(cap.catchUpBand).to.equal("age60to63");
   });
+
+  it("2027: $25,500 + $11,750 for someone who turns 60 in 2027", () => {
+    const cap = annualDeferralCapCents({ taxYear: 2027, birthYear: 1967, planAllowsCatchUp: true });
+    expect(cap.catchUpBand).to.equal("age60to63");
+    expect(cap.totalCents).to.equal(25_500_00 + 11_750_00);
+  });
+
+  it("2027: $25,500 + $8,500 for someone who turns 64 in 2027", () => {
+    const cap = annualDeferralCapCents({ taxYear: 2027, birthYear: 1963, planAllowsCatchUp: true });
+    expect(cap.catchUpBand).to.equal("standard");
+    expect(cap.totalCents).to.equal(25_500_00 + 8_500_00);
+  });
 });
 
 describe("rothCatchUpRequired", () => {
@@ -95,5 +133,15 @@ describe("rothCatchUpRequired", () => {
     expect(
       rothCatchUpRequired({ taxYear: 2025, catchUpPortionCents: 100, priorYearFicaWagesCents: 999_999_99 })
     ).to.equal(false);
+  });
+
+  it("2027 uses the $155,000 threshold on 2026 FICA wages (strictly greater than)", () => {
+    const at = { taxYear: 2027, catchUpPortionCents: 100 };
+    expect(rothCatchUpRequired({ ...at, priorYearFicaWagesCents: 155_000_00 })).to.equal(false);
+    expect(rothCatchUpRequired({ ...at, priorYearFicaWagesCents: 155_000_01 })).to.equal(true);
+    // Between the 2026 and 2027 thresholds: Roth would be required under the
+    // 2026 figure but not the 2027 one.
+    expect(rothCatchUpRequired({ ...at, priorYearFicaWagesCents: 152_000_00 })).to.equal(false);
+    expect(rothCatchUpRequired({ ...at, priorYearFicaWagesCents: undefined })).to.equal(null);
   });
 });
