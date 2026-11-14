@@ -55,6 +55,35 @@ const IRS_DEFERRAL_LIMITS = Object.freeze({
       "IRS news release IR-2025-111 (Nov. 13, 2025): https://www.irs.gov/newsroom/401k-limit-increases-to-24500-for-2026-ira-limit-increases-to-7500",
     ]),
   }),
+  2027: Object.freeze({
+    taxYear: 2027,
+    // Every 2027 figure is from IRS Notice 2026-66, "Cost-of-Living Adjusted
+    // Limitations for 2027", effective January 1, 2027. Each one is stated
+    // there as an increase from the 2026 figure in the entry above.
+    // IRC 402(g)(1): increased from $24,500 to $25,500 (Notice 2026-66, p. 1)
+    electiveDeferralLimitCents: 25_500_00,
+    // IRC 414(v)(2)(B)(i): increased from $8,000 to $8,500 (p. 1)
+    catchUpLimitCents: 8_500_00,
+    // IRC 414(v)(2)(E)(i): ages 60-63 in 2027, increased from $11,250 to
+    // $11,750 (pp. 1-2)
+    catchUpLimitAge60to63Cents: 11_750_00,
+    // IRC 414(v)(7)(A): the notice calls this "the Roth catch-up wage
+    // threshold for 2026" - it is compared against the employee's 2026
+    // (prior-year) FICA wages from this employer to decide whether their
+    // 2027 catch-ups must be Roth. Increased from $150,000 to $155,000 (p. 2)
+    rothCatchUpRequirementApplies: true,
+    rothCatchUpWageThresholdCents: 155_000_00,
+    // IRC 415(c)(1)(A): increased from $72,000 to $75,000 (p. 1)
+    annualAdditionsLimitCents: 75_000_00,
+    // IRC 401(a)(17): increased from $360,000 to $375,000 (p. 2). Not the
+    // $555,000 figure, which applies only to certain grandfathered
+    // governmental plans.
+    compensationLimitCents: 375_000_00,
+    sources: Object.freeze([
+      "IRS Notice 2026-66 (2027 Amounts Relating to Retirement Plans and IRAs): https://www.irs.gov/pub/irs-drop/n-26-66.pdf",
+      "IRS news release IR-2026-136 (Nov. 12, 2026): https://www.irs.gov/newsroom/401k-limit-increases-to-25500-for-2027-ira-limit-remains-7500",
+    ]),
+  }),
 });
 
 /** The sourced limits for one tax year. Throws if the year isn't listed. */

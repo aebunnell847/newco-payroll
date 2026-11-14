@@ -94,9 +94,9 @@ against real transactions on a real (local, test) chain.
 
 ## 401(k) limits: sourced, by tax year
 
-`src/regulatory/irsLimits.js` holds the IRS limits for 2025 and 2026,
-each copied from and cited to an IRS primary source (Notice 2025-67,
-IR-2025-111, Publications 560 and 17). `test/irsLimits.test.js` pins every
+`src/regulatory/irsLimits.js` holds the IRS limits for 2025, 2026
+and 2027, each copied from and cited to an IRS primary source (Notices
+2025-67 and 2026-66, IR-2025-111, IR-2026-136, Publications 560 and 17). `test/irsLimits.test.js` pins every
 figure, so a typo fails CI.
 
 - **Every pay period needs a `taxYear`** (the year the pay date falls
