@@ -89,3 +89,50 @@ describe("Virginia (tables for wages paid after July 1, 2025)", () => {
   it("daily payroll uses P = 300", () => expect(at(va, 200_00, 260).lines.P).to.equal(300));
   it("no VA-4: no exemptions", () => expect(at(va, 2_649_00, 24).formBasis).to.equal("none-on-file-no-exemptions"));
 });
+
+describe("Virginia (2027 table: wages paid January 1, 2027, to December 31, 2027)", () => {
+  const at27 = (wagesCents, payPeriodsPerYear, form = null) =>
+    va.compute({ taxYear: 2027, wagesCents, payPeriodsPerYear, form, payDate: "2027-01-15" });
+  it("formula example: $2,649 semimonthly, 5 exemptions -> T $49,726, W $2,602, $108.42", () => {
+    const r = at27(2_649_00, 24, { personalExemptions: 5 });
+    expect(r.lines.T).to.equal(49_726_00);
+    expect(r.lines.W).to.equal(2_602_00);
+    expect(r.stateCents).to.equal(108_42);
+  });
+  it("only the standard deduction changed: $8,750 -> $9,200", () => {
+    const [y26, y27] = [va.TABLES[2026], va.TABLES[2027]];
+    expect(y26.standardDeductionCents).to.equal(8_750_00);
+    expect(y27.standardDeductionCents).to.equal(9_200_00);
+    const rest = ({ standardDeductionCents, sources, ...t }) => t;
+    expect(rest(y27)).to.deep.equal(rest(y26));
+  });
+  it("each bracket's base follows from the bracket below it", () => {
+    const rows = va.TABLES[2027].annualTable;
+    for (let i = 1; i < rows.length; i++) {
+      expect(rows[i - 1][1] + ((rows[i][0] - rows[i - 1][0]) * rows[i - 1][2]) / 10_000).to.equal(rows[i][1]);
+    }
+  });
+  // Printed cells at the row's "But Less Than" wage. The tables use W
+  // unrounded; the formula (and this code) round W to the dollar, so the
+  // cent tables can differ by under a cent and the dollar tables by under $0.50.
+  it("reproduces printed Daily and Weekly table cells", () => {
+    expect(at27(50_00, 260).stateCents).to.equal(53); // Daily $48-$50, 0 exemptions
+    expect(at27(220_00, 260, { personalExemptions: 10 }).stateCents).to.equal(8_25); // Daily $218-$220, 10
+    expect(at27(380_00, 52, { personalExemptions: 4 }).stateCents).to.equal(4_08); // Weekly $370-$380, 4
+    expect(at27(1_130_00, 52).stateCents).to.equal(49_85); // Weekly $1,120-$1,130, 0
+  });
+  it("reproduces printed Semi-Monthly, Biweekly and Monthly table cells (whole dollars)", () => {
+    expect(at27(1_770_00, 24).stateCents).to.be.closeTo(69_00, 50); // Semi-Monthly $1,755-$1,770, 0
+    expect(at27(1_520_00, 26).stateCents).to.be.closeTo(57_00, 50); // Biweekly $1,510-$1,520, 0
+    expect(at27(3_300_00, 12, { personalExemptions: 10 }).stateCents).to.be.closeTo(80_00, 50); // Monthly $3,275-$3,300, 10
+  });
+  it("daily payroll uses P = 300; no VA-4: no exemptions", () => {
+    expect(at27(200_00, 260).lines.P).to.equal(300);
+    expect(at27(2_649_00, 24).formBasis).to.equal("none-on-file-no-exemptions");
+  });
+  it("2028 has no table yet (\"New tables for taxable years 2028 & 2029 will be published in the Fall of 2027\")", () => {
+    const { getStateModule } = require("../src/regulatory/state");
+    expect(va.years).to.deep.equal([2026, 2027]);
+    expect(() => getStateModule("VA", 2028)).to.throw(/no sourced Virginia withholding for tax year 2028/);
+  });
+});
