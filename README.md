@@ -272,7 +272,7 @@ with its own sources and tax years.
 | NE | Circular EN percentage tables (generated, 8 periods) after allowance values, with the 1.5% / 50% minimum; W-4N | Gross minus pre-tax 401(k) (federal taxable wages) | Pre-2020 federal W-4's status and allowances, else single with none (Circular EN) | 2025, 2026 |
 | NJ | Rate Tables A-E per payroll period, NJ-W4 (A for single/separate, B for joint/HoH/widow(er), or the table chosen on line 3) | Gross minus 401(k) up to the federal limit (NJ-WT) | Rate A, 0 allowances (current NJ-WT is silent; this is the higher-withholding choice) | 2025, 2026 |
 | NM | FYI-104 percentage tables (generated; single / married / HoH, no allowances); federal W-4 status | Gross minus pre-tax 401(k) | Single (unstated; flagged) | 2025, 2026 |
-| NY | NYS-50-T Method II per pay frequency, Method III top rates, IT-2104; **plus NYC resident tax and Yonkers resident surcharge** | Gross minus pre-tax 401(k) (NYS-50) | Single, 0 allowances; a pre-2020 federal W-4's allowances if that's what's on file (NYS-50); no city tax | 2026 |
+| NY | NYS-50-T Method II per pay frequency, Method III top rates, IT-2104; **plus NYC resident tax and Yonkers resident surcharge** | Gross minus pre-tax 401(k) (NYS-50) | Single, 0 allowances; a pre-2020 federal W-4's allowances if that's what's on file (NYS-50); no city tax | 2026, 2027 |
 | OH | Percentage Method effective Aug. 1, 2026: $650 / periods per exemption, 1.6% / 2.99% / 3.4%; IT 4 | Gross minus pre-tax 401(k) | Zero exemptions (unstated; flagged) | 2026 (Oct. 2025 tables, 1.775% / 2.99% / 3.64%, before Aug. 1) |
 | OK | OW-2 percentage tables (generated, 8 periods) after $1,000 per allowance / periods, rounded to the dollar; OK-W-4 | Gross minus pre-tax 401(k) | Single, no allowances (OAC 710:90-3-3) | 2025, 2026 |
 | OR | 150-206-436 formula: wages - federal tax withheld (capped, phased) - standard deduction, 4.75%-9.9%, $263 per allowance; OR-W-4 | Gross minus pre-tax 401(k) (FAQ 6) | 8% of wages (HB 2119) | 2025, 2026 |
@@ -365,12 +365,17 @@ How the figures are checked:
     that fall in brackets that haven't changed match to the cent; the other
     three are within 2 cents.
 - **New York.** `tools/state/generate_ny.py` generates the State, NYC and
-  Yonkers tables from the Tax Department's 2026 booklets.
+  Yonkers tables from the Tax Department's booklets: 2026 from the 1/26
+  PDFs, 2027 from the 1/27 editions published as web pages (the PDFs
+  weren't yet updated), parsed with the Python standard library.
   - The generator checks every published allowance (Table A) against
     Table B + N × Table C.
   - It confirms the Yonkers tables are identical to the State's, which is
     why Yonkers is the State amount × 16.75%.
-  - Of the booklets' 24 worked examples, 21 match to the cent. The other 3
+  - 2027: of the booklets' 24 worked examples, 23 match to the cent; the
+    other (Yonkers single Ex. 3) is the same 1-cent rounding inconsistency
+    as in 2026.
+  - 2026: of the booklets' 24 worked examples, 21 match to the cent. The other 3
     are within 1 cent, and in each one the booklet's own text is
     inconsistent (for example, it prints a rate of 0.070 where its table
     says 0.0707). The test file explains each case.
