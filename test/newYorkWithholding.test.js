@@ -62,6 +62,84 @@ describe("New York: the NY Tax Department's 24 worked examples (2026)", () => {
   }
 });
 
+// 2027 (1/27 booklets, agency HTML editions). All 8 State examples match to
+// the cent, and so do all 8 NYC examples (the NYC booklet is unchanged from
+// 2026). Of the 8 Yonkers examples, 7 match to the cent; the other is the
+// same rounding inconsistency the 2026 booklet had:
+//   Yonkers single Ex. 3: $3,576.63 x 0.1675 = $599.0855, printed as $599.08
+//                     (its Ex. 4 rounds $7.2678 up to $7.27).
+// (Yonkers single Ex. 2's text takes Step 4 as $12.27 where the State
+// booklet's identical step prints $12.28 ($165 x 0.0744 = $12.276); both
+// give $42.53, so it matches to the cent.)
+const EXAMPLES_2027 = [
+  ["NYS", 1, "weekly", 400, "single", 3, 780, 0],
+  ["NYS", 2, "semimonthly", 5000, "single", 1, 25391, 0],
+  ["NYS", 3, "monthly", 50000, "single", 3, 357663, 0],
+  ["NYS", 4, "daily", 750, "single", 2, 4339, 0],
+  ["NYS", 1, "weekly", 400, "married", 4, 652, 0],
+  ["NYS", 2, "semimonthly", 5000, "married", 3, 24360, 0],
+  ["NYS", 3, "monthly", 50000, "married", 3, 362201, 0],
+  ["NYS", 4, "daily", 750, "married", 2, 4387, 0],
+  ["NYC", 1, "weekly", 400, "single", 3, 611, 0],
+  ["NYC", 2, "semimonthly", 5000, "single", 1, 18880, 0],
+  ["NYC", 3, "monthly", 50000, "single", 3, 207050, 0],
+  ["NYC", 4, "daily", 750, "single", 2, 2951, 0],
+  ["NYC", 1, "weekly", 400, "married", 4, 517, 0],
+  ["NYC", 2, "semimonthly", 5000, "married", 3, 18437, 0],
+  ["NYC", 3, "monthly", 50000, "married", 3, 206873, 0],
+  ["NYC", 4, "daily", 750, "married", 2, 2943, 0],
+  ["Yonkers", 1, "weekly", 400, "single", 3, 131, 0],
+  ["Yonkers", 2, "semimonthly", 5000, "single", 1, 4253, 0],
+  ["Yonkers", 3, "monthly", 50000, "single", 3, 59908, 1],
+  ["Yonkers", 4, "daily", 750, "single", 2, 727, 0],
+  ["Yonkers", 1, "weekly", 400, "married", 4, 109, 0],
+  ["Yonkers", 2, "semimonthly", 5000, "married", 3, 4080, 0],
+  ["Yonkers", 3, "monthly", 50000, "married", 3, 60669, 0],
+  ["Yonkers", 4, "daily", 750, "married", 2, 735, 0],
+];
+
+describe("New York: the NY Tax Department's 24 worked examples (2027, 1/27 booklets)", () => {
+  for (const [booklet, n, period, gross, status, exemptions, answer, tolerance] of EXAMPLES_2027) {
+    it(`${booklet} ${status} Example ${n}: ${period} $${gross}, ${exemptions} exemptions -> $${(answer / 100).toFixed(2)}`, () => {
+      const form = { filingStatus: status };
+      if (booklet === "NYC") Object.assign(form, { nycResident: true, nycAllowances: exemptions });
+      else Object.assign(form, { stateAllowances: exemptions, yonkersResident: booklet === "Yonkers" });
+      const r = compute(gross * 100, period, form, { taxYear: 2027 });
+      const got = booklet === "NYS" ? r.stateCents : booklet === "NYC" ? r.localities.NYC : r.localities.YONKERS;
+      expect(Math.abs(got - answer)).to.be.at.most(tolerance);
+    });
+  }
+});
+
+describe("New York: 2027 rules", () => {
+  const compute27 = (wagesCents, period, form) => compute(wagesCents, period, form, { taxYear: 2027 });
+
+  it("uses each year's own tables and throws for a year with none", () => {
+    const form = { filingStatus: "single", stateAllowances: 3 };
+    expect(compute(400_00, "weekly", form).stateCents).to.equal(8_01);
+    expect(compute27(400_00, "weekly", form).stateCents).to.equal(7_80);
+    expect(() => compute(400_00, "weekly", form, { taxYear: 2028 })).to.throw(/no sourced New York withholding for tax year 2028/);
+  });
+
+  it("switches to Method 3 at $1,077,550 single and $2,155,350 married (annualized net wages)", () => {
+    const r = compute27(30_000_00, "weekly", { filingStatus: "single", stateAllowances: 0 });
+    expect(r.lines.method).to.equal("III");
+    expect(r.stateCents).to.equal(Math.round((155_260_040 * 1045) / 10_000 / 52));
+    expect(compute27(20_000_00, "weekly", { filingStatus: "single", stateAllowances: 0 }).lines.method).to.equal("II");
+    expect(ny.TABLES[2027].NYS.method3.married[0]).to.deep.equal([2_155_350_00, 1045]);
+    expect(compute27(41_000_00, "weekly", { filingStatus: "married", stateAllowances: 0 }).lines.method).to.equal("II");
+    expect(compute27(42_000_00, "weekly", { filingStatus: "married", stateAllowances: 0 }).lines.method).to.equal("III");
+  });
+
+  it("carries NYC's unchanged 2027 booklet and the Yonkers Method 8 examples", () => {
+    expect(ny.TABLES[2027].NYC).to.deep.equal(ny.TABLES[2026].NYC);
+    const nr = (wagesCents, period) => compute27(wagesCents, period, { filingStatus: "single", worksInYonkers: true }).localities.YONKERS_NR;
+    expect(nr(75_00, "weekly")).to.equal(0); // Example 1
+    expect(nr(200_00, "weekly")).to.equal(81); // Example 2
+    expect(nr(400_00, "semimonthly")).to.equal(1_38); // Example 3
+  });
+});
+
 describe("New York: rules", () => {
   it("switches to Method III (top income rates) at $1,077,550 of annualized net wages", () => {
     // $30,000/week single, 0 allowances: net $29,857.70, annualized $1,552,600.40 x 10.45% / 52
